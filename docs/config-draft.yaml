@@ -1,0 +1,13 @@
+# チャットデバイス用設定案（UTF-8）
+# 現在のファームウェアはこのファイルを読み込みません。
+# 検出方式と設定読込処理は未実装です。
+schema_version: 1
+
+wake_word:
+  enabled: true
+  method: "local_template"
+  # 表示・登録案内用。文字列だけを変えても検出対象は変わりません。
+  phrase: "スタックちゃん"
+  language: "ja"
+  # 端末で録音登録して生成する特徴データ。配布済みファイルではありません。
+  template_file: "/wakeword0.bin"

@@ -1,0 +1,7 @@
+.pio/
+.vscode/
+data/secrets.json
+data/wakeword*.bin*
+data/wakeword*.meta*
+__pycache__/
+*.pyc
