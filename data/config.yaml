@@ -1,0 +1,27 @@
+schema_version: 1
+
+wake_word:
+  enabled: true
+  method: "local_template"
+  # 表示名です。呼びかけ変更時は長押し操作で音声も再登録します。
+  phrase: "スタックちゃん"
+  language: "ja"
+  template_file: "/wakeword0.bin"
+  # 小さい値ほど厳密。実機のWake distanceログで調整してください。
+  distance_threshold: 250
+
+audio:
+  volume: 100
+  energy_threshold: 500
+  silence_ms: 800
+  idle_timeout_ms: 15000
+  max_speech_ms: 15000
+
+openai:
+  transcription_model: "gpt-live-transcribe"
+  realtime_model: "gpt-realtime"
+  voice: "marin"
+
+gemini:
+  model: "gemini-2.5-flash"
+  system_prompt: "あなたはスタックちゃんです。日本語で親しみやすく、短く2文程度で回答してください。"
