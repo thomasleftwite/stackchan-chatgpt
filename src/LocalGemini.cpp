@@ -6,11 +6,14 @@
 #include <ArduinoJson.h>
 #include <esp_heap_caps.h>
 #include <math.h>
+#include <atomic>
 #include "AudioDevice.h"
 #include "LivePcm.h"
+#include "UtteranceWindow.h"
 
 namespace {
-constexpr size_t inputCount = 48000, maxOutput = 240000;
+constexpr size_t maxInput = UtteranceWindow::maxInput, captureCapacity = UtteranceWindow::capacity, maxOutput = 240000;
+size_t inputCount = 0;
 AudioDevice audio;
 WebSocketsClient ws;
 int16_t *input = nullptr, *output = nullptr;
@@ -23,9 +26,30 @@ bool credit = false, outputEnded = false, played = false, complete = false, clos
 uint32_t generation = 0, pressedAt = 0;
 livepcm::Output reply;
 char lastResult[160] = "GEM RESULT NONE", lastCapture[160] = "GEM CAPTURE NONE";
+std::atomic<size_t> captured{0};
+std::atomic<bool> capturing{false}, captureFault{false};
+size_t queued = 0; // Written only by setup before capture, then by the mic callback.
+void released(void*, void* data, size_t length) {
+  const size_t count = captured.load(std::memory_order_relaxed);
+  if (length != UtteranceWindow::frame || data != input + count || count + length > captureCapacity) {
+    captureFault.store(true); return;
+  }
+  // This callback runs in the mic task: queue the successor before returning,
+  // so the driver carries its DMA tail across the two requests without a gap.
+  if (capturing.load() && queued < captureCapacity) {
+    if (!M5.Mic.record(input + queued, UtteranceWindow::frame, 16000, false)) {
+      // end() can win the request lock after the main task requests shutdown.
+      // That expected rejection must not turn a completed utterance into FAIL.
+      if (capturing.load()) captureFault.store(true);
+    }
+    else queued += UtteranceWindow::frame;
+  }
+  captured.store(count + length, std::memory_order_release);
+}
 void display(const char* text) { M5.Display.fillScreen(TFT_BLACK); M5.Display.setCursor(2, 2); M5.Display.print(text); }
-void idle() { display(configured ? "Gemini PC ready\nShort: local beep\nHold: ask (3 sec)\nWait for Release" : "Gemini PC v2\nRun PC device tool\nUSB config only"); }
-void wipe() { audio.stop(); if (input) memset(input, 0, inputCount * 2); if (output) memset(output, 0, maxOutput * 2); }
+void idle() { display(configured ? "Gemini PC ready\nShort: local beep\nHold: ask (max 5s)\nSilence sends" : "Gemini PC v2\nRun PC device tool\nUSB config only"); }
+void wipe() { capturing.store(false); audio.stop(); M5.Mic.setBufferReleaseCallback(nullptr, nullptr); inputCount = 0;
+  if (input) memset(input, 0, captureCapacity * 2); if (output) memset(output, 0, maxOutput * 2); }
 void bad(unsigned code) { failed = true; if (!fault) fault = code; }
 bool control(const char* type, uint32_t value = 0) {
   char json[128];
@@ -50,7 +74,7 @@ void event(WStype_t type, uint8_t* data, size_t length) {
   const String kind = doc["type"].as<String>();
   if (kind == "ready" && !ready && doc["mode"].as<String>() == "gemini-live" &&
       doc["protocolVersion"].as<unsigned>() == 2 && doc["inputRate"].as<unsigned>() == 16000 &&
-      doc["outputRate"].as<unsigned>() == 24000 && doc["maxInputSamples"].as<unsigned>() >= inputCount &&
+      doc["outputRate"].as<unsigned>() == 24000 && doc["maxInputSamples"].as<unsigned>() >= maxInput &&
       doc["maxOutputSamples"].as<unsigned>() <= maxOutput) { ready = true; return; }
   if (!ready || !doc["generation"].is<uint32_t>() || doc["generation"].as<uint32_t>() != generation) { bad(3); return; }
   if (kind == "input_ack" && !inputEnded && sent == acked + 1 && doc["sequence"].is<uint32_t>() && doc["sequence"].as<uint32_t>() == acked) { ++acked; return; }
@@ -64,6 +88,7 @@ void event(WStype_t type, uint8_t* data, size_t length) {
   bad(3);
 }
 bool transport() {
+  if (!inputCount || inputCount > maxInput || inputCount % 320) return false;
   ready = failed = inputEnded = thinking = outputStarted = credit = outputEnded = played = complete = closed = false;
   stopped = false; sent = acked = fault = 0; reply = {};
   if (++generation == 0) ++generation;
@@ -74,14 +99,14 @@ bool transport() {
   while (!failed && !closed && millis() - started < 85000) {
     ws.loop();
     if (failed || closed) break;
-    if (ready && !inputEnded && sent == acked && sent < 150 && static_cast<int32_t>(millis() - nextSend) >= 0) {
+    if (ready && !inputEnded && sent == acked && sent < inputCount / 320 && static_cast<int32_t>(millis() - nextSend) >= 0) {
       uint8_t packet[652]; livepcm::write32(packet, generation); livepcm::write32(packet + 4, sent);
       packet[8] = 0x40; packet[9] = 1; packet[10] = packet[11] = 0;
       memcpy(packet + 12, input + sent * 320, 640); ++sent;
       if (!ws.sendBIN(packet, sizeof(packet))) bad(6);
       nextSend = millis() + 20;
     }
-    if (!inputEnded && acked == 150) { inputEnded = true; if (!control("input_end")) bad(6); memset(input, 0, inputCount * 2); }
+    if (!inputEnded && acked == inputCount / 320) { inputEnded = true; if (!control("input_end")) bad(6); memset(input, 0, inputCount * 2); }
     if (outputStarted && !outputEnded && !credit && !reply.complete()) { credit = true; if (!control("next", reply.sequence)) bad(6); }
     if (outputEnded && !playbackQueued) {
       display("Gemini reply\nPlaying 24kHz"); playbackQueued = true; playbackStarted = millis();
@@ -104,24 +129,76 @@ bool transport() {
   Serial.println(lastResult); if (!ok) Serial.printf("GEM FAULT code=%u\n", fault);
   return ok;
 }
+bool recordQuestion() {
+  strlcpy(lastCapture, "GEM CAPTURE FAIL", sizeof(lastCapture));
+  display("Speak after beep\nSilence sends");
+  if (!audio.cue() || !audio.listen(16000)) { Serial.println("GEM CAPTURE FAIL"); return false; }
+  captured.store(0); captureFault.store(false); queued = UtteranceWindow::frame; capturing.store(true);
+  M5.Mic.setBufferReleaseCallback(nullptr, released);
+  UtteranceWindow window; AmbientGate ambient; ambient.reset(); bool calibrated = false;
+  display("Preparing mic\nKeep quiet\nWait for Speak now");
+  const auto started = millis();
+  bool queuedFirst = M5.Mic.record(input, UtteranceWindow::frame, 16000, false), cancelled = false;
+  size_t processed = 0;
+  while (queuedFirst && !captureFault.load() && (!calibrated || !window.terminal()) && millis() - started < 12500) {
+    const size_t available = captured.load(std::memory_order_acquire);
+    while (processed + UtteranceWindow::frame <= available && (!calibrated || !window.terminal())) {
+      if (!calibrated) {
+        ambient.push(input + processed, UtteranceWindow::frame);
+        if (ambient.ready()) {
+          calibrated = true;
+          if (!ambient.usable()) break;
+          window.reset(ambient.threshold());
+          Serial.printf("GEM VAD CALIBRATED rms=%lu threshold=%lu\n", static_cast<unsigned long>(ambient.noise()), static_cast<unsigned long>(ambient.threshold()));
+          display("Speak now (max 5s)\nSilence sends");
+        }
+      } else window.push(input + processed, UtteranceWindow::frame);
+      processed += UtteranceWindow::frame;
+    }
+    if (calibrated && !ambient.usable()) break;
+    M5.update(); if (M5.BtnA.wasPressed()) { cancelled = true; break; }
+    delay(1);
+  }
+  capturing.store(false); audio.stop(); M5.Mic.setBufferReleaseCallback(nullptr, nullptr);
+  const size_t completed = captured.load(std::memory_order_acquire);
+  if (cancelled) { strlcpy(lastCapture, "GEM CAPTURE CANCEL", sizeof(lastCapture)); Serial.println(lastCapture); display("Cancelled"); return false; }
+  if (calibrated && !ambient.usable()) { strlcpy(lastCapture, "GEM CAPTURE NOISY", sizeof(lastCapture)); Serial.println(lastCapture); display("Too noisy\nTry quieter place"); return false; }
+  if (!queuedFirst || captureFault.load() || !calibrated || !window.terminal()) { Serial.println("GEM CAPTURE FAIL"); return false; }
+  if (!window.samples()) {
+    snprintf(lastCapture, sizeof(lastCapture), "GEM CAPTURE EMPTY ms=%lu captured=%u", static_cast<unsigned long>(millis() - started), static_cast<unsigned>(completed));
+    Serial.println(lastCapture); display("No speech\nTry again"); return false;
+  }
+  inputCount = window.samples();
+  const size_t start = window.start() + 16000; // Discard the one-second calibration.
+  if (inputCount > maxInput || start + inputCount > completed) { Serial.println("GEM CAPTURE FAIL"); return false; }
+  memmove(input, input + start, inputCount * 2);
+  memset(input + inputCount, 0, (captureCapacity - inputCount) * 2);
+  uint64_t energy = 0; uint32_t peak = 0, clipped = 0;
+  for (size_t i = 0; i < inputCount; ++i) { const int32_t v = input[i]; const uint32_t m = v < 0 ? -v : v;
+    energy += static_cast<int64_t>(v) * v; peak = max(peak, m); if (m >= 32760) ++clipped; }
+  snprintf(lastCapture, sizeof(lastCapture), "GEM CAPTURE DONE samples=%u ms=%lu rms=%lu peak=%lu clipped=%lu captured=%u end=%s",
+    static_cast<unsigned>(inputCount), static_cast<unsigned long>(millis() - started),
+    static_cast<unsigned long>(sqrt(static_cast<double>(energy) / inputCount)), static_cast<unsigned long>(peak),
+    static_cast<unsigned long>(clipped), static_cast<unsigned>(completed), window.limited() ? "limit" : "silence");
+  Serial.println(lastCapture); return true;
+}
 void run(bool microphone) {
   if (!configured || WiFi.status() != WL_CONNECTED) { Serial.println("GEM WIFI FAIL"); return; }
   wipe();
   if (microphone) {
-    display("Speak after beep\nQuestion: 3 sec");
-    if (!audio.cue() || !audio.listen(16000)) { wipe(); Serial.println("GEM CAPTURE FAIL"); idle(); return; }
-    display("Recording 16kHz\nSpeak now (3 sec)"); const auto started = millis();
-    bool captured = M5.Mic.record(input, inputCount, 16000, false);
-    while (captured && M5.Mic.isRecording() && millis() - started < 4500) delay(1);
-    captured = captured && !M5.Mic.isRecording(); audio.stop();
-    if (!captured) { wipe(); Serial.println("GEM CAPTURE FAIL"); idle(); return; }
-    uint64_t energy = 0; uint32_t peak = 0, clipped = 0;
-    for (size_t i = 0; i < inputCount; ++i) { const int32_t v = input[i]; const uint32_t m = v < 0 ? -v : v;
-      energy += static_cast<int64_t>(v) * v; peak = max(peak, m); if (m >= 32760) ++clipped; }
-    snprintf(lastCapture, sizeof(lastCapture), "GEM CAPTURE DONE samples=48000 ms=%lu rms=%lu peak=%lu clipped=%lu",
-      static_cast<unsigned long>(millis() - started), static_cast<unsigned long>(sqrt(static_cast<double>(energy) / inputCount)),
-      static_cast<unsigned long>(peak), static_cast<unsigned long>(clipped)); Serial.println(lastCapture);
-  } else for (size_t i = 0; i < inputCount; ++i) input[i] = static_cast<int16_t>(2000 * sinf(2 * PI * 1000 * i / 16000));
+    if (!recordQuestion()) { wipe(); delay(1500); M5.update(); consumed = true; idle(); return; }
+  } else {
+    // Exercise the VAD and variable upload path without starting the microphone.
+    UtteranceWindow window; window.reset();
+    for (size_t offset = 0; offset < captureCapacity && !window.terminal(); offset += 320) {
+      for (size_t i = 0; i < 320; ++i) input[offset + i] = offset >= 12800 && offset < 22400 ? static_cast<int16_t>(2000 * sinf(2 * PI * 1000 * (offset + i) / 16000)) : 0;
+      window.push(input + offset, 320);
+    }
+    inputCount = window.samples();
+    if (!window.terminal() || inputCount != 24000 || window.start() != 9600) { wipe(); Serial.println("GEM VADTEST FAIL"); idle(); return; }
+    memmove(input, input + window.start(), inputCount * 2);
+    Serial.printf("GEM VADTEST PASS samples=%u\n", static_cast<unsigned>(inputCount));
+  }
   display("Sending question\nPC -> Gemini"); const bool ok = transport();
   wipe(); display(ok ? "Reply complete" : "Connection failed\nCheck PC service"); delay(1500); M5.update(); consumed = true; idle();
 }
@@ -144,7 +221,7 @@ void dispatch() {
 void setup() {
   auto cfg = M5.config(); cfg.internal_spk = false; cfg.internal_mic = false; cfg.external_speaker.atomic_echo = true; cfg.serial_baudrate = 115200;
   M5.begin(cfg); M5.Display.setTextSize(1); M5.Speaker.setVolume(100);
-  input = static_cast<int16_t*>(heap_caps_calloc(inputCount, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+  input = static_cast<int16_t*>(heap_caps_calloc(captureCapacity, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   output = static_cast<int16_t*>(heap_caps_calloc(maxOutput, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   if (!input || !output) { display("PSRAM failed"); Serial.println("GEM MEMORY FAIL"); return; }
   idle(); Serial.println("GEM READY v=2 input=16000 output=24000 mono=1 bits=16");

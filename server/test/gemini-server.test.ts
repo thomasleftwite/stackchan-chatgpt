@@ -38,6 +38,18 @@ test('PC Gemini service rejects unauthorized clients before any API work', async
   }
   assert.equal(calls, 0);
 });
+
+test('PC Gemini service accepts a complete five-second variable utterance at the input bound', async t => {
+  let calls = 0;
+  const {url} = await fixture(t, async input => {
+    ++calls; assert.equal(input.length, 160000);
+    assert.equal(input.readInt16LE(0), -1234); assert.equal(input.readInt16LE(159998), 2345);
+    return response(Buffer.from([1, 0]));
+  });
+  const pcm = Buffer.alloc(160000); pcm.writeInt16LE(-1234, 0); pcm.writeInt16LE(2345, 159998);
+  const result = await runGeminiProtocolProbe(url, token, pcm);
+  assert.equal(calls, 1); assert.equal(result.frames, 1); assert.deepEqual(result.pcm, Buffer.from([1, 0]));
+});
 test('PC Gemini service rejects wrong sequence and premature playback claims', async t => {
   const {url} = await fixture(t, async () => response(Buffer.alloc(2)));
   for (const kind of ['sequence','played']) {

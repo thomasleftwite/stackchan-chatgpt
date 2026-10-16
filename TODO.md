@@ -43,6 +43,8 @@
 | 基本確認済み | 実機のGemini中継v2対応・回答再生 | 2026-10-16 | docs/GEMINI_DEVICE_VALIDATION_2026-10-16.md R01、src/LocalGemini.cpp、include/LivePcm.h。アプリ限定書込み・ハッシュ検証成功、C++19/19。3秒入力48,000→回答47,040サンプル/98フレーム、実再生終了まで14,454ms、ユーザーが日本語回答を確認 |
 | 完了 | 実機向けPC起動・USBのRAM設定 | 2026-10-16 | Start-Gemini-Device.cmd、server/local-gemini.ts、tools/run_gemini_device.py。LANの空きポート/ランダムトークンをUSB転送し保存しない。認証拒否・合成可変長12,001サンプル再生を確認。試験後サービス停止、最長約10分の一時検証用 |
 | 未実装 | 連続送受信・会話履歴・長時間評価 | — | 現PC版は最大5秒入力/10秒回答の1質問1回答。連続DMA取得、低遅延送信、複数ターン、再接続/異常系の実機確認、TLS/クラウドは未検証 |
+| 基本確認済み | 環境音に合わせた発話終了判定・無発話では送信しない | 2026-10-16 | include/UtteranceWindow.h、src/LocalGemini.cpp、docs/VARIABLE_UTTERANCE_VALIDATION_2026-10-16.md。R02誤検出を修正しR03の無発話2回でEMPTY。環境音RMS219/しきい値750、約6.06秒で終了。R04へ終了時競合の修正を含めてアプリ限定導入済み。C++27/27、PC26/26、ビルド/書込みハッシュ成功 |
+| 確認中 | 可変長の実質問からGemini回答再生 | — | R04でSpeak now後の発話→末尾無音で送信を実機確認中。固定3秒の初回成功と区別する |
 
 詳細な証拠、絶対パス、未確認事項は [検証記録](docs/validation.md) を参照する。
 

@@ -2,9 +2,9 @@
 
 再開時は [短い要約](docs/RESUME.md) を最初に参照してください。
 
-2026-10-16更新。**実機マイク→ローカルPC→Gemini Live→端末の24kHz回答再生に成功**し、ユーザーが日本語回答の聴取を確認しました。OpenAIキーは不要です。端末版R01 / PC中継 `0.2.0-dev`、PCテスト25/25・C++19/19成功。実機向け起動は [Start-Gemini-Device.cmd](Start-Gemini-Device.cmd)、手順・実測は [実機Gemini検証](docs/GEMINI_DEVICE_VALIDATION_2026-10-16.md)、PC単独試験は [PC検証記録](docs/GEMINI_PC_VALIDATION_2026-10-16.md) を参照してください。
+2026-10-16更新。**実機マイク→ローカルPC→Gemini Live→端末の24kHz回答再生に成功**しています。OpenAIキーは不要です。現在は端末版R04で、3秒固定から発話終了時の送信へ変更しています。PCテスト26/26・C++27/27成功、環境音に合わせた無発話判定を実機で確認。可変長の実質問を確認中です。実機向け起動は [Start-Gemini-Device.cmd](Start-Gemini-Device.cmd)、最新の手順は [可変長録音の検証](docs/VARIABLE_UTTERANCE_VALIDATION_2026-10-16.md)、初回の実機成功は [R01の検証](docs/GEMINI_DEVICE_VALIDATION_2026-10-16.md) を参照してください。
 
-実機COM4は新しいGemini端末版R01/protocol v2です。3秒録音・1質問1回答で、呼びかけ待機や会話履歴は未対応です。実機試験後の一時PCサービスは停止済み。起動用ファイルを開き、端末を長押し→離す→開始音後に発話すると試せます。サービスは最長約10分、再試験は再実行してください。再開位置は [TODO](TODO.md) と [引継ぎ](docs/HANDOFF_2026-10-16.md) に記載しています。
+実機COM4はGemini端末版R04/protocol v2です。1質問1回答で、呼びかけ待機や会話履歴は未対応です。起動用ファイルを開き、端末を長押し→離す→開始音→約1秒静かに待つ→**Speak nowの表示後に発話**します。約0.7秒の無音で送信し、送信音声全体の上限は5秒です。何も話さなければNo speechで戻ります。サービスは最長約10分、再試験は再実行してください。再開位置は [短い要約](docs/RESUME.md) に記載しています。
 
 AtomS3R + Atomic Voice Base（旧称Atomic Echo Base、SKU A149）用の音声チャット端末です。
 C++ / Arduino-ESP32 / PlatformIOで開発し、ESP-IDFプロジェクトは使用しません。

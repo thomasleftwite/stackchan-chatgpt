@@ -15,7 +15,7 @@ from run_lan_probe import choose_host
 
 ROOT = Path(__file__).resolve().parents[1]
 READY = 'GEM READY v=2 input=16000 output=24000 mono=1 bits=16'
-STATUS = re.compile(r'GEM (?:READY v=2 input=16000 output=24000 mono=1 bits=16|CONFIG OK|WIFI (?:CONNECTED|FAIL)|MEMORY FAIL|CAPTURE (?:NONE|FAIL|DONE samples=48000 ms=\d{1,6} rms=\d{1,5} peak=\d{1,5} clipped=\d{1,5})|RESULT (?:NONE|(?:PASS|FAIL) gen=\d{1,10} input=\d{1,5} output=\d{1,6} frames=\d{1,3} ms=\d{1,6} played=[01])|FAULT code=\d{1,2})')
+STATUS = re.compile(r'GEM (?:READY v=2 input=16000 output=24000 mono=1 bits=16|CONFIG OK|WIFI (?:CONNECTED|FAIL)|MEMORY FAIL|CAPTURE (?:NONE|FAIL|EMPTY(?: ms=\d{1,6} captured=\d{1,6})?|CANCEL|NOISY|DONE samples=\d{1,5} ms=\d{1,6} rms=\d{1,5} peak=\d{1,5} clipped=\d{1,5}(?: captured=\d{1,6} end=(?:silence|limit))?)|VAD CALIBRATED rms=\d{1,5} threshold=\d{1,5}|VADTEST (?:PASS samples=\d{1,5}|FAIL)|RESULT (?:NONE|(?:PASS|FAIL) gen=\d{1,10} input=\d{1,5} output=\d{1,6} frames=\d{1,3} ms=\d{1,6} played=[01])|FAULT code=\d{1,2})')
 
 
 def main():
