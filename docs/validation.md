@@ -6,6 +6,8 @@
 
 ユーザー指示により [短い再開要約](RESUME.md) を保存。PC25/25、C++19/19、atoms3r/atoms3r-gemini-deviceのビルド2/2成功。端末書込み、追加録音、API呼出しは実施しない。元のsecrets.jsonが保存時チェックポイントと一致し、秘密設定/生成物がignoredかつ未追跡であることを確認。未公開9コミットの155種類のblobと、要約を含む作業ファイル102件に実キー/保存済み端末トークンの一致0件。Git差分の空白エラーなし。PRと同期完了状態は短い要約の末尾へ記録する。
 
+GitHub同期完了: [PR #2](https://github.com/thomasleftwite/stackchan-chatgpt/pull/2)は2026-10-16 21:09 JSTにMERGED。merge `9e2b0c0ef8d68f75570029c18e3a22792b0ed8ee`。競合なし、検証対象HEAD `6ba8a8b82b17ccd8524db1b688fef9d5cc341069`を指定してmerge。GitHub上のCIチェックは未設定で、ローカルの合格を根拠にした。非強制fast-forwardでmainを同期し、切替前にRAMへ保持した秘密設定2件と切替後のバイト一致、ignore/未追跡を確認。この結果の文書追記のみをmainへ保存する。
+
 ## 実機からGemini回答再生まで成功（2026-10-16）
 
 COM4を新Gemini端末版R01/protocol v2へアプリ限定で更新、ハッシュ検証と起動成功。SPIFFS/NVS/保存済みWi-Fi/呼びかけ登録は書き換えない。TypeScript/PC25/25、C++19/19成功。APIなしの合成試験で可変長12,001サンプル/26フレームと実再生終了通知を確認した。

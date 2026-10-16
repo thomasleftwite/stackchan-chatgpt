@@ -37,4 +37,6 @@
 - 実マイクをGeminiへ送る試験はユーザーの明示許可を取得済み。追加のクラウド公開・課金変更はその許可に含めない。実機の録音開始は物理操作のみ。
 - 同期前に秘密設定のignoreと未追跡を別々に確認し、Git切替/マージ後も内容保持を確認する。
 
-作業基準: `e6ae4a1`（実機Gemini成功）。GitHub統合先: [thomasleftwite/stackchan-chatgpt](https://github.com/thomasleftwite/stackchan-chatgpt)、main。同期の最終結果は本書への追記とGitHubのPR状態を参照。
+## GitHub同期完了
+
+2026-10-16 21:09（日本時間）、[PR #2](https://github.com/thomasleftwite/stackchan-chatgpt/pull/2)はMERGED。統合コミットは `9e2b0c0ef8d68f75570029c18e3a22792b0ed8ee`。作業基準e6ae4a1と要約6ba8a8bを含む全10コミットをpush/main統合した。ローカルもmainへ切り替え、origin/mainとの一致と秘密設定のバイト一致・Git除外・未追跡を確認。この完了結果の追記はmainへの文書更新として保存する。

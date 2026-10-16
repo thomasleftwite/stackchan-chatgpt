@@ -51,4 +51,4 @@
 | 状態 | 項目 | 完了日 | 成果物・検証 |
 |---|---|---|---|
 | 完了 | 会話の短い再開要約 | 2026-10-16 | docs/RESUME.md R01、docs/HANDOFF_2026-10-16.md R9。現在状態/起動/制限/残作業/参照資料を整理 |
-| 進行中 | Gemini中継・実機成功までのGitHub push/main統合 | — | codex/gemini-live-bridge。秘密設定の除外、回帰、PR状態を確認して記録 |
+| 完了 | Gemini中継・実機成功までのGitHub push/main統合 | 2026-10-16 | [PR #2](https://github.com/thomasleftwite/stackchan-chatgpt/pull/2) MERGED、merge 9e2b0c0。main同期、秘密設定のバイト一致/除外/未追跡を確認。PC25/25、C++19/19、ビルド2/2成功 |
