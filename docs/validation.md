@@ -232,3 +232,17 @@ APIキーは導入せず、会話APIは試験しない。初期化後はWi-Fi設
 - AI Studio Buildで要件を送信してアプリ作成を試みたが、処理が進まずサービス側の `The caller does not have permission` を確認した。再読込み後にMy appsを開いても新規画面へ戻り、アプリ/公開URLの作成成功は確認できていない。未加工のブラウザログやアカウント情報はこの記録へ保存していない。
 - 現在の停止点はアプリ作成権限。Starter対象外、Geminiキー不正、WebSocket非対応と断定する証拠ではない。ユーザーへ手動作成可否を確認中で、課金有効化や別アカウントへの切替、クラウドSecret登録、公開は行っていない。
 - 既存の端末・ESP32ソース・SPIFFS/NVSとローカルGemini設定は変更していない。今回のGemini API試験、録音、機器書込みは未実施。
+
+### echo差分のStandardsレビュー
+
+対象は `a8d793b...2eb2b908dbb404f286a9b7b989fb556c6e14f269`。別担当からP2が1件: packageのNode>=22条件に対し、start/smokeの `--env-file-if-exists` は22.9.0以上が必要。package.json・lockfileルート・READMEを22.9.0へ揃え、限定再確認で解消、追加指摘なし。[Node公式CLI](https://nodejs.org/api/cli.html#--env-file-if-existsfile)。秘密情報・未検証範囲・Starter停止点について追加指摘なし。
+
+### echo差分のSpecレビュー
+
+別担当の指摘0件。同じ差分について、認証付きecho・ヘルス・既知PCM・上限・停止の実装と合格条件が整合し、16kHz echoを24kHz再生/Gemini会話と扱わず、ローカル/コンテナ/公開/実機の未確認範囲を区別していると確認。権限エラーをStarter資格不足やWebSocket非対応とは断定していない。
+
+初回指摘数はStandards 1件（最悪P2、修正・限定確認済み）・Spec 0件（最悪問題なし）。実際のコンテナ/公開/Google APIを実行したレビューではない。
+
+最低Node版を揃えたソース束R02は `.pio/publish/stackchan-echo-probe-r02.zip`、13ファイル、26,440 bytes、SHA256 `10B493E9AEA559018FF579B6DC7039F4AED08DC5598F27445404156B90CADA8F`。R01は履歴として保持。R02もZIP整合と実キー/秘密設定/生成物を含まないことを確認した。
+
+その後ユーザーがAPI用「Stackchan-chatgpt」プロジェクトを作成。AI StudioのProjects一覧に名称と無料枠表示を確認したが、BuildアプリやStarter公開枠とは区別した。Build作成を再試行するとアプリの生成が始まった。先の権限エラーの原因がプロジェクト不在だったと断定する対照試験ではない。生成コード・Secret・公開条件は引き続き未確認。
