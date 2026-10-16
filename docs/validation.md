@@ -2,6 +2,14 @@
 
 更新日: 2026-10-16（日本時間）。対象: 開発版0.1.0-dev、AtomS3R + Atomic Echo Base、Arduino/PlatformIO。
 
+## 最新追記: ローカルPCのGemini Live実API検証（2026-10-16）
+
+保存済みGeminiキーの検証とPC環境実装をユーザーが指示。`gemini-3.8-live` のHTTP200、テキスト入力からの24kHz音声応答（22,081サンプル/4チャンク/2,454ms）、生成試験音声16kHzを認証付きPC WebSocketへ送ってGeminiの24kHz回答を受け取る実API試験（入力13,440→出力78,000サンプル/163フレーム）に成功した。OpenAIキーは不要。
+
+Node.js24.15.0、固定SDK2.30.0。新しいPCサービス `server/gemini-pc.ts` / protocol v2、1質問1回答、認証・世代/連番・入力/回答量・期限・next/playedを実装。SDK処理は期限付き子プロセスへ分離。TypeScriptビルド・自動テスト25/25成功、非公開.envからの単独起動とhealthz200を確認し停止。起動は `Start-Gemini-PC.cmd`、既定は127.0.0.1:8080でPC内限定。詳細と再現方法は [PC検証記録](GEMINI_PC_VALIDATION_2026-10-16.md)。
+
+元の秘密設定を保持し、新.envには端末専用トークンとHOST/PORTだけを作成。ignore/未追跡を確認。音声・文字起こし・APIエラー本文・資格情報は記録しない。Live接続は計3回、課金設定変更なし、利用残量/料金は未確認。COM4はLAN診断R04/v1のまま、端末/設定領域への書込みなし。再生完了通知はPC上の模擬であり、実マイク→Gemini→端末再生は未検証。次は端末v2対応と家庭内LAN接続を実装する。以下は各段階の履歴。
+
 ## 再開時の状態
 
 - GitHub mainは設計・セットアップ段階の `acc1d58b133a54e7e5a0ad5408235445124902f8`。取得元は `https://github.com/thomasleftwite/stackchan-chatgpt.git`。

@@ -1,43 +1,70 @@
-# Gemini Live中継の接続確認版
+# ローカルPCのGemini Live中継
 
 版: 0.2.0-dev / 更新日: 2026-10-16。
 
-現在の方針: AI Studio公開設定でStarter対象外を確認したため、ユーザー指定でクラウド公開を保留。ローカル検証はPC内/端末単体に続いて [実機LANのPCM往復・再生](../docs/LAN_PCM_VALIDATION_2026-10-16.md) まで基本確認した。一時サーバは停止済み。常駐サービスや課金設定への変更ではない。
+目的: AtomS3R + Atomic Voice Baseの16kHzマイク入力をPCで受け、Gemini Liveの24kHz回答音声を端末へ返す。クラウド公開はユーザー指定で保留し、現在はWindows PCで検証する。
 
-目的: AtomS3Rの16 kHz PCM入力と24 kHz PCM出力をGemini Liveへ中継するクラウドサービスを作る。ユーザーの指定により、稼働先はAI Studio Buildから公開するCloud Runを想定する。このWindows PCのNode.jsは開発・試験用で、常駐サーバの前提にはしない。
+保存済みGeminiキーで `gemini-3.8-live` の利用と24kHz音声応答を確認した。さらに、生成した試験音声を16kHzへ変換し、認証付きPC WebSocketサービス→Gemini Live音声入力→24kHz回答受信まで成功。自動テストは25/25成功。詳細は [PC検証記録](../docs/GEMINI_PC_VALIDATION_2026-10-16.md)。
 
-現在は共通PCMフレーム、認証付きWebSocket echo、HTTPヘルスチェック、各種上限、疎通クライアントとLAN診断用端末を実装済み。Gemini接続と会話用端末クライアントは未実装。Geminiキーは使用・複製・送信していない。Cloud Run向けDockerfileは用意したが、Dockerが手元にないためコンテナビルド・実デプロイは未検証。
+**実機はLAN診断版R04 / protocol v1のまま。新サービスはprotocol v2なので、端末ファームウェアの対応が必要。実機からGeminiへの発話・回答再生は未検証。** 現段階は1接続につき1質問・1回答で、会話履歴、連続録音、発話割込みは含まない。
 
-## 再現方法
+## 起動
 
-Node.js 22.9.0以降を使用する（今回の試験環境は24.15.0、npm 11.14.0）。起動の `--env-file-if-exists` に必要な最低版を含めた条件。このフォルダで次を実行する。
+Node.js 22.9.0以降（試験環境24.15.0、npm 11.14.0）を使用する。このフォルダで初回のみ依存を準備する。
 
 ```text
 npm ci --ignore-scripts
 npm test
 ```
 
-依存はpackage.jsonで固定し、package-lock.jsonを保持する。`npm test`はTypeScriptを型検査・ビルドし、Node組込みテストで既知PCM、フレーム検査、未認証拒否、バイナリ往復、接続上限、時間切れ、不正・過大データ拒否、疎通クライアントを確認する。PC内連続PCM追加時点は12/12成功、その後pcm-loopbackを加えて現在15/15成功。20ms間隔の100フレーム（16kHz mono、計32,000サンプル）もPC内で全データ一致を確認した。Node試験と実機LAN/音質の確認は分けて扱う。
+案件ルートの `Start-Gemini-PC.cmd` を開くと、ビルド→非公開設定の初期作成→サービス起動を行う。終了はその画面でCtrl+C。自動起動やWindowsサービス登録は行わない。
 
-## 起動と外部疎通試験
+同等の手動手順:
 
-`.env.example`を参考に、32～256文字の推測困難な `DEVICE_TOKEN` を自分の `.env` またはクラウドのSecretへ設定する。これは端末認証専用で、Geminiキーとは別。キーやトークンをチャットへ貼らない。`npm run build`後に`npm start`で起動する。HTTPサーバは `0.0.0.0:PORT`（既定8080）で待つので、開発PCでは公開ネットワークから到達できない環境で使用する。自動起動・常駐設定は行っていない。
+```text
+npm run build
+npm run gemini:init
+npm run gemini:serve
+```
 
-- `/healthz`: 認証なしで `{"status":"ok","mode":"echo"}`。秘密や環境変数を返さない。
-- `/live`: `Authorization: Bearer <DEVICE_TOKEN>` をupgrade前に確認。クエリ付きURL、別パスは拒否。正しい接続にはmode=echoのreadyを送り、入力のPCMパケットを変更せず返す。
-- 1インスタンスにつき同時1接続、30秒で終了、無通信10秒で終了。WebSocketメッセージ最大1,024 B、1秒窓の入力最大65,536 B、送信滞留32,768 B超過で切断。クラウド全体の同時数上限ではない。
-- 公開後、手元の `.env` に `PROBE_URL=wss://<公開ホスト>/live` と同じ認証トークンを設定して `npm run smoke`。既知640 Bの合成PCMを送り、byte一致と正常closeを判定する。音声を録音・保存・ログ出力しない。
+既定は `http://127.0.0.1:8080/healthz` と `ws://127.0.0.1:8080/live`。ヘルスは `{"status":"ok","mode":"gemini-live","protocolVersion":2}` を返す。初期設定はPC内限定。実機対応時に `.env` のHOSTをこのPCの家庭内LANのIPv4へ変更し、端末側のURL/認証設定も用意する必要がある。LAN内は平文WSで、WSS/TLSは未対応。ファイアウォール設定は変更していない。
 
-echoは16 kHz入力をそのまま返す疎通用で、24 kHzへの変換やGeminiの返答ではない。端末ではこのechoを24 kHz音声として再生しない。
+## キーと設定
 
-## 形式
+Geminiキーは既存の `../data/secrets.json` の `gemini_api_key` から読む。OpenAIキーは不要。`GEMINI_API_KEY` 環境変数があればそちらを優先する。モデルは `GEMINI_MODEL`、既定 `gemini-3.8-live`。
 
-1メッセージは12 byteのlittle-endianヘッダとraw PCM本文。generationId:u32、sequence:u32、sampleCount:u16、flags:u16（0）の順。本文はsigned 16-bit little-endian mono。上りは最大640 byte（16 kHzで20ms）、下りは最大960 byte（24 kHzで20ms）。順序・世代・creditの状態管理は次の実装範囲で、現モジュールは構造の検証のみ。
+`gemini:init` は `.env` がなければランダムな64桁の `DEVICE_TOKEN`、HOST、PORTだけを作成し、既存ファイルを上書きしない。Geminiキーは複製しない。DEVICE_TOKENは端末認証専用。キーやトークンをチャット・URL・ログへ載せない。`.env.example` は空の見本。実設定、バックアップ、node_modules、dist、`.pio` はGit対象外。
 
-## 秘密設定と次の段階
+## 検証コマンド
 
-診断用の `local-lan.ts` はstdinで受けた一時トークンとRFC1918アドレスで空きポートにbindし、`pcm-loopback` モードを使う。`tools/run_lan_probe.py` からのみ起動する手順を [LAN検証](../docs/LAN_PCM_VALIDATION_2026-10-16.md) に記録。150フレーム限定の16→24kHz補間と世代/連番検査を追加し、サーバ全15/15成功。通常 `server.ts` のechoモードでは補間しない。診断版はGeminiを呼ばず、録音後に送信して再生する。連続会話用のcredit/drainは次の実装範囲。
+```text
+npm test
+npm run gemini:check
+npm run gemini:local-check
+```
 
-`.env.example`は空の見本。`.env`とその派生ファイル、node_modules、distはGit対象外。Cloud RunではGoogleキーをサーバのSecretとして扱い、端末やGitに埋め込まない。準備済み `../data/secrets.json` は保持し、この試験では読み込まない。
+- `npm test`: 実APIを呼ばず、型検査・PCM形式・認証・順序・上限・期限・切断・credit/drain・秘密設定読込みを試験する。
+- `gemini:check`: モデルのHTTP確認と短いテキストからのLive音声応答。Live接続1回。
+- `gemini:local-check`: 試験用の音声をLiveで生成し、16kHzへ診断用変換してPCサービス経由でLiveへ入力。24kHz回答を検査する。Live接続2回。再生完了通知は模擬で、スピーカーや人の聴取を確認するものではない。
 
-クラウド方式の一次資料は [実現可能性の確認](../docs/AI_STUDIO_CLOUD_FEASIBILITY_2026-10-16.md)、通信全体は [構成検討](../docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md)、公開前の操作と現状は [Starter公開準備](../docs/STARTER_ECHO_DEPLOYMENT.md) を参照。ローカル試験は完了し、Cloud Run上のWSS疎通→Gemini接続→AtomS3R統合は未完了。
+実API試験はアカウントのAPI利用枠を消費する。利用残量・料金はこの試験では確認していない。課金設定の変更は行わない。音声・文字起こし・生のAPIエラーを保存せず、安全な数値と状態だけを出力する。
+
+## Gemini用protocol v2
+
+HTTPサーバの `/live` upgrade前に `Authorization: Bearer <DEVICE_TOKEN>` を検査する。クエリ付きURLや別パスを拒否。同時1接続、処理中の切断後も前のAPI処理が終わるまで新規接続を拒否する。
+
+1. `ready`: mode=gemini-live、protocolVersion=2、入力16kHz/出力24kHzと上限を通知。
+2. 入力binary: 12 byte little-endianヘッダ（generation:u32、sequence:u32、sampleCount:u16、flags:u16=0）+ signed16bit mono PCM。最大640 byte/フレーム、連番0開始。`input_ack` を受けて次を送る。最大250フレーム・80,000サンプル（5秒）。
+3. JSON `input_end`（generation付き）で入力終了。`thinking` 後にGeminiへmanual VADのactivityStart→16kHz raw PCM→activityEndで送る。WAVヘッダは付けない。
+4. `output_start` で24kHz回答のsamples/framesを通知。端末はgeneration/sequence付き `next` を1つ送り、最大960 byteの回答フレームを1つ取得する。世代・連番・総量を照合する。
+5. 最終フレーム後の `output_end` を確認し、実際の再生キューが空になってから `played`（generation/samples付き）を送る。サーバは `complete` とclose1000。PC試験クライアントのplayedは模擬通知。
+
+回答は最大240,000サンプル（10秒）をRAMに蓄積してから配信する。接続90秒、入力無通信10秒、API処理30秒+子プロセス終了猶予2秒、メッセージ1,024 byte、入力65,536 byte/秒、送信滞留32,768 byteの上限を設ける。Gemini SDK 2.30.0の接続待ちを確実に打ち切るため、API処理を子プロセスで分離し期限超過時にその子だけを終了する。自動再試行は行わない。
+
+## 既存の診断機能
+
+`npm start` は従来のecho用 `server.ts` を起動する別コマンド。入力16kHzをそのまま返すprotocol v1診断で、Gemini回答ではない。今回の起動には `gemini:serve` を使う。
+
+`local-lan.ts` と `tools/run_lan_probe.py` は実機LAN診断専用。150フレーム限定で16→24kHz補間した自声を端末で自然に再生できた。[LAN検証記録](../docs/LAN_PCM_VALIDATION_2026-10-16.md)を参照。この成功と今回のPC/Gemini試験を合わせても、実機Gemini統合の合格には数えない。
+
+Cloud Run用Dockerfileは従来echoだけの許可リストで、新しいGemini PC機能を含まない。Dockerビルド・公開は未検証。[クラウド検討](../docs/AI_STUDIO_CLOUD_FEASIBILITY_2026-10-16.md)と[構成案](../docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md)は履歴として保持する。

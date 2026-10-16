@@ -1,22 +1,25 @@
 # Stackchan-chatgpt
 
-開発版 `0.1.0-dev`。2026-10-16までにファームウェア/SPIFFSビルドとホストテスト14件、実機の起動・画面表示、設定領域導入、キー未設定での起動、スマートフォンからの設定AP検出を確認。音声調整後の通常版で開始音・呼びかけ登録、短押しリセット後の登録保持・ボタンなし呼びかけ反応も確認済みです。家庭内Wi-Fiの接続保存、音声の録音再生品質、実API、呼びかけ精度の定量評価は未確認です。再開位置は [TODO](TODO.md) と [検証記録](docs/validation.md) に記載しています。
+2026-10-16更新。保存済みGeminiキーで **PCサービス→Gemini Live音声入力→24kHz回答受信に成功**しました。ローカルPC用中継は `0.2.0-dev`、自動テスト25/25成功。OpenAIキーは不要です。起動は [Start-Gemini-PC.cmd](Start-Gemini-PC.cmd)、手順は [サーバ説明](server/README.md)、結果と未確認範囲は [PC検証記録](docs/GEMINI_PC_VALIDATION_2026-10-16.md) を参照してください。
+
+実機COM4はLAN診断版R04のままで、新しいGeminiサービスに必要なprotocol v2への対応は未実装です。今回の実API試験は生成した試験音声を使用しており、実機でのGemini回答再生は未検証です。PCサービスは起動確認後に停止済み、既定はPC内限定です。再開位置は [TODO](TODO.md) と [引継ぎ](docs/HANDOFF_2026-10-16.md) に記載しています。
 
 AtomS3R + Atomic Voice Base（旧称Atomic Echo Base、SKU A149）用の音声チャット端末です。
 C++ / Arduino-ESP32 / PlatformIOで開発し、ESP-IDFプロジェクトは使用しません。
 
 - Wi-Fi: WiFiManager
 - 待機: 端末内の録音比較（SimpleVox MFCC/DTW）またはボタン
-- 会話: OpenAI Realtime文字起こし → Gemini回答生成 → OpenAI Realtime読み上げ
+- 従来の端末単体版の会話: OpenAI Realtime文字起こし → Gemini回答生成 → OpenAI Realtime読み上げ
+- 新しいPC中継版: 16kHz PCM入力 → Gemini Live → 24kHz PCM回答（実機統合は次段階）
 - 録音・再生は切替式。全二重・発話割り込みは対象外です。
 
 実機・実APIの検証状況は [検証記録](docs/validation.md) を参照してください。
 
-2026-10-16時点の [再開用引継ぎ](docs/HANDOFF_2026-10-16.md) と、次期方針である [Node.js中継 + Gemini Live構成の検討](docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md) を保存しています。以下のセットアップは現在の実装に対応し、次期構成はまだ実装していません。
+2026-10-16時点の [再開用引継ぎ](docs/HANDOFF_2026-10-16.md) と [Node.js中継 + Gemini Live構成の検討](docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md) を保存しています。以下のセットアップ・操作は従来の端末単体版 `0.1.0-dev` 向けです。PC中継版は [server/README](server/README.md) を使用してください。
 
-クラウド中継は **AI Studio Buildから公開するCloud Run** を想定しますが、Starter対象外のため公開を保留しました。ユーザー指定のローカル検証として、PC内通信・端末単体音声に続き、**実機LANで16kHz PCMをPCへ送り、24kHzへ変換して端末へ戻す基本試験に成功**しました。ユーザーが自然な自声の再生を確認しています。[LAN検証記録](docs/LAN_PCM_VALIDATION_2026-10-16.md)、[単体音声検証](docs/LOCAL_AUDIO_VALIDATION_2026-10-16.md)、[サーバコード](server/README.md) を参照してください。現在COM4はLAN診断版で、一時PCサーバは停止済みです。連続ストリーミング・Gemini Live会話・WSS/TLSは未実装/未検証です。
+クラウド中継は **AI Studio Buildから公開するCloud Run** を想定しましたが、Starter対象外のため公開を保留しました。ローカル検証では **実機LANで16kHz PCMをPCへ送り、24kHzへ変換して端末へ戻す基本試験に成功**し、ユーザーが自然な自声の再生を確認しています。[LAN検証記録](docs/LAN_PCM_VALIDATION_2026-10-16.md)、[単体音声検証](docs/LOCAL_AUDIO_VALIDATION_2026-10-16.md) を参照してください。これは今回のPC/Gemini試験とは別の結果です。連続ストリーミング・実機Gemini会話・WSS/TLSは未検証です。
 
-## セットアップ
+## 従来の端末単体版セットアップ
 
 1. VS Codeでこのフォルダを開き、PlatformIO拡張をインストールします。
 2. `data/secrets.example.json` を `data/secrets.json` にコピーし、OpenAIとGeminiのAPIキーを入力します。キーのファイルはGit管理対象外です。
