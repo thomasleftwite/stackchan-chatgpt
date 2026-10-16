@@ -10,11 +10,14 @@
 #include "AudioDevice.h"
 #include "LivePcm.h"
 #include "UtteranceWindow.h"
+#include "FaceUI.h"
 
 namespace {
 constexpr size_t maxInput = UtteranceWindow::maxInput, captureCapacity = UtteranceWindow::capacity, maxOutput = 240000;
 size_t inputCount = 0;
 AudioDevice audio;
+FaceUI face;
+using deviceui::Mode;
 WebSocketsClient ws;
 int16_t *input = nullptr, *output = nullptr;
 char host[16]{}, token[65]{}, auth[96]{}, command[160]{};
@@ -48,18 +51,24 @@ void released(void*, void* data, size_t length) {
   }
   captured.store(count + length, std::memory_order_release);
 }
-void display(const char* text) { M5.Display.fillScreen(TFT_BLACK); M5.Display.setCursor(2, 2); M5.Display.print(text); }
 bool pcReady() { return configured && pcOnline && millis() - pcSeen < 20000; }
-void idle() {
-  if (!configured) display("Start PC service\nConnect USB\nRun Gemini-Device\non the PC");
-  else if (WiFi.status() != WL_CONNECTED) display("WiFi disconnected\nRestart PC tool");
-  else if (!pcReady()) display("PC service stopped\nRestart PC tool");
-  else display("Gemini PC ready\nShort: local beep\nHold: ask (max 5s)\nSilence sends");
+void updateUi() {
+  face.link(!configured ? deviceui::Link::Unconfigured : WiFi.status() != WL_CONNECTED ? deviceui::Link::WifiOffline :
+            !pcReady() ? deviceui::Link::PcOffline : deviceui::Link::Ready);
+  const bool wasAsleep = face.state.asleep;
+  face.tick(millis());
+  if (!wasAsleep && face.state.asleep) audio.stop();
 }
+void waitUi(uint32_t duration) {
+  const auto started = millis();
+  while (millis() - started < duration) { M5.update(); updateUi(); delay(10); }
+}
+void idle() { face.state.rest(millis()); face.set(face.state.mode); updateUi(); }
 bool canRecord() {
   if (!configured || WiFi.status() != WL_CONNECTED || !pcReady()) {
     Serial.printf("GEM START BLOCKED reason=%s\n", !configured ? "setup" : WiFi.status() != WL_CONNECTED ? "wifi" : "pc");
-    idle(); return false;
+    face.set(Mode::Error, !configured ? "Run PC tool / USB" : WiFi.status() != WL_CONNECTED ? "WiFi disconnected" : "Start PC service");
+    waitUi(1500); idle(); return false;
   }
   return true;
 }
@@ -93,10 +102,10 @@ void event(WStype_t type, uint8_t* data, size_t length) {
       doc["maxOutputSamples"].as<unsigned>() <= maxOutput) { ready = true; return; }
   if (!ready || !doc["generation"].is<uint32_t>() || doc["generation"].as<uint32_t>() != generation) { bad(3); return; }
   if (kind == "input_ack" && !inputEnded && sent == acked + 1 && doc["sequence"].is<uint32_t>() && doc["sequence"].as<uint32_t>() == acked) { ++acked; return; }
-  if (kind == "thinking" && inputEnded && !thinking) { thinking = true; display("Gemini thinking\nPlease wait"); return; }
+  if (kind == "thinking" && inputEnded && !thinking) { thinking = true; face.set(Mode::Thinking); return; }
   if (kind == "output_start" && thinking && !outputStarted && doc["sampleRate"].as<unsigned>() == 24000 &&
       doc["samples"].is<uint32_t>() && doc["frames"].is<uint32_t>() &&
-      reply.begin(generation, doc["samples"].as<uint32_t>(), doc["frames"].as<uint32_t>())) { outputStarted = true; return; }
+      reply.begin(generation, doc["samples"].as<uint32_t>(), doc["frames"].as<uint32_t>())) { outputStarted = true; face.set(Mode::Receiving); return; }
   if (kind == "output_end" && outputStarted && !outputEnded && !credit && reply.complete() &&
       doc["samples"].is<uint32_t>() && doc["samples"].as<uint32_t>() == reply.total) { outputEnded = true; return; }
   if (kind == "complete" && played && !complete) { complete = true; return; }
@@ -124,15 +133,16 @@ bool transport() {
     if (!inputEnded && acked == inputCount / 320) { inputEnded = true; if (!control("input_end")) bad(6); memset(input, 0, inputCount * 2); }
     if (outputStarted && !outputEnded && !credit && !reply.complete()) { credit = true; if (!control("next", reply.sequence)) bad(6); }
     if (outputEnded && !playbackQueued) {
-      display("Gemini reply\nPlaying 24kHz"); playbackQueued = true; playbackStarted = millis();
+      playbackQueued = true; playbackStarted = millis();
       if (!audio.output() || !audio.play(output, reply.total)) bad(7);
+      else face.set(Mode::Speaking);
     }
     if (playbackQueued && !played && !failed) {
       if (millis() - playbackStarted > 12000) bad(8);
-      else if (!audio.playing()) { audio.stop(); played = true; if (!control("played", reply.total)) bad(6); }
+      else if (!audio.playing()) { audio.stop(); face.set(Mode::Cooldown); played = true; if (!control("played", reply.total)) bad(6); }
     }
     M5.update(); if (M5.BtnA.wasPressed()) bad(9);
-    delay(1);
+    updateUi(); delay(1);
   }
   const bool ok = !failed && complete && closed && played;
   stopped = true; ws.disconnect();
@@ -146,12 +156,14 @@ bool transport() {
 }
 bool recordQuestion() {
   strlcpy(lastCapture, "GEM CAPTURE FAIL", sizeof(lastCapture));
-  display("Speak after beep\nSilence sends");
+  if (!face.state.mayStart()) return false;
+  face.set(Mode::Preparing, "Please stay quiet");
+  if (!face.state.microphoneAllowed()) return false;
   if (!audio.cue() || !audio.listen(16000)) { Serial.println("GEM CAPTURE FAIL"); return false; }
   captured.store(0); captureFault.store(false); queued = UtteranceWindow::frame; capturing.store(true);
   M5.Mic.setBufferReleaseCallback(nullptr, released);
   UtteranceWindow window; AmbientGate ambient; ambient.reset(); bool calibrated = false;
-  display("Preparing mic\nKeep quiet\nWait for Speak now");
+  face.set(Mode::Preparing, "Please stay quiet");
   const auto started = millis();
   bool queuedFirst = M5.Mic.record(input, UtteranceWindow::frame, 16000, false), cancelled = false;
   size_t processed = 0;
@@ -165,23 +177,30 @@ bool recordQuestion() {
           if (!ambient.usable()) break;
           window.reset(ambient.threshold());
           Serial.printf("GEM VAD CALIBRATED rms=%lu threshold=%lu\n", static_cast<unsigned long>(ambient.noise()), static_cast<unsigned long>(ambient.threshold()));
-          display("Speak now (max 5s)\nSilence sends");
+          face.set(Mode::Listening, "Speak now (max 5s)");
         }
-      } else window.push(input + processed, UtteranceWindow::frame);
+      } else {
+        window.push(input + processed, UtteranceWindow::frame);
+        uint64_t frameEnergy = 0;
+        for (size_t i = 0; i < UtteranceWindow::frame; ++i) {
+          const int32_t value = input[processed + i]; frameEnergy += static_cast<int64_t>(value) * value;
+        }
+        face.level(static_cast<unsigned>(sqrt(static_cast<double>(frameEnergy) / UtteranceWindow::frame)) / 400);
+      }
       processed += UtteranceWindow::frame;
     }
     if (calibrated && !ambient.usable()) break;
     M5.update(); if (M5.BtnA.wasPressed()) { cancelled = true; break; }
-    delay(1);
+    updateUi(); delay(1);
   }
   capturing.store(false); audio.stop(); M5.Mic.setBufferReleaseCallback(nullptr, nullptr);
   const size_t completed = captured.load(std::memory_order_acquire);
-  if (cancelled) { strlcpy(lastCapture, "GEM CAPTURE CANCEL", sizeof(lastCapture)); Serial.println(lastCapture); display("Cancelled"); return false; }
-  if (calibrated && !ambient.usable()) { strlcpy(lastCapture, "GEM CAPTURE NOISY", sizeof(lastCapture)); Serial.println(lastCapture); display("Too noisy\nTry quieter place"); return false; }
+  if (cancelled) { strlcpy(lastCapture, "GEM CAPTURE CANCEL", sizeof(lastCapture)); Serial.println(lastCapture); face.set(Mode::Notice, "Cancelled"); return false; }
+  if (calibrated && !ambient.usable()) { strlcpy(lastCapture, "GEM CAPTURE NOISY", sizeof(lastCapture)); Serial.println(lastCapture); face.set(Mode::Notice, "Too noisy"); return false; }
   if (!queuedFirst || captureFault.load() || !calibrated || !window.terminal()) { Serial.println("GEM CAPTURE FAIL"); return false; }
   if (!window.samples()) {
     snprintf(lastCapture, sizeof(lastCapture), "GEM CAPTURE EMPTY ms=%lu captured=%u", static_cast<unsigned long>(millis() - started), static_cast<unsigned>(completed));
-    Serial.println(lastCapture); display("No speech\nTry again"); return false;
+    Serial.println(lastCapture); face.set(Mode::Notice, "No speech"); return false;
   }
   inputCount = window.samples();
   const size_t start = window.start() + 16000; // Discard the one-second calibration.
@@ -201,7 +220,9 @@ void run(bool microphone) {
   if (!canRecord()) return;
   wipe();
   if (microphone) {
-    if (!recordQuestion()) { wipe(); delay(1500); M5.update(); consumed = true; idle(); return; }
+    if (!recordQuestion()) { wipe();
+      if (face.state.mode == Mode::Preparing || face.state.mode == Mode::Listening) face.set(Mode::Error, "Microphone failed");
+      waitUi(1500); M5.update(); consumed = true; idle(); return; }
   } else {
     // Exercise the VAD and variable upload path without starting the microphone.
     UtteranceWindow window; window.reset();
@@ -214,8 +235,11 @@ void run(bool microphone) {
     memmove(input, input + window.start(), inputCount * 2);
     Serial.printf("GEM VADTEST PASS samples=%u\n", static_cast<unsigned>(inputCount));
   }
-  display("Sending question\nPC -> Gemini"); const bool ok = transport();
-  wipe(); display(ok ? "Reply complete" : "Connection failed\nCheck PC service"); delay(1500); M5.update(); consumed = true; idle();
+  face.set(Mode::Sending); const bool ok = transport();
+  wipe();
+  if (ok) { face.set(Mode::Cooldown); waitUi(300); }
+  else { face.set(fault == 9 ? Mode::Notice : Mode::Error, fault == 9 ? "Cancelled" : "Check PC service"); waitUi(1500); }
+  M5.update(); consumed = true; idle();
 }
 void configure() {
   char candidateHost[16]{}, candidateToken[65]{}, extra; unsigned candidatePort;
@@ -223,8 +247,8 @@ void configure() {
   IPAddress ip; if (!ip.fromString(candidateHost) || !(ip[0] == 10 || (ip[0] == 172 && ip[1] >= 16 && ip[1] <= 31) || (ip[0] == 192 && ip[1] == 168))) return;
   for (size_t i = 0; i < 64; ++i) if (!isxdigit(static_cast<unsigned char>(candidateToken[i]))) return;
   strlcpy(host, candidateHost, sizeof(host)); strlcpy(token, candidateToken, sizeof(token)); port = candidatePort; memset(candidateToken, 0, sizeof(candidateToken));
-  Serial.println("GEM CONFIG OK"); display("Connecting WiFi\nSaved settings"); WiFi.persistent(false); WiFi.mode(WIFI_STA); WiFi.begin();
-  const auto started = millis(); while (WiFi.status() != WL_CONNECTED && millis() - started < 15000) delay(20);
+  Serial.println("GEM CONFIG OK"); face.set(Mode::Connecting); WiFi.persistent(false); WiFi.mode(WIFI_STA); WiFi.begin();
+  const auto started = millis(); while (WiFi.status() != WL_CONNECTED && millis() - started < 15000) { updateUi(); delay(20); }
   configured = WiFi.status() == WL_CONNECTED; pcOnline = configured; pcSeen = millis();
   Serial.println(configured ? "GEM WIFI CONNECTED" : "GEM WIFI FAIL"); idle();
 }
@@ -232,10 +256,11 @@ void dispatch() {
   if (strcmp(command, "GEM PING") == 0 || strcmp(command, "GEM INFO") == 0) {
     if (strcmp(command, "GEM PING") == 0 && configured) {
       const bool wasOnline = pcReady(); pcSeen = millis(); pcOnline = true;
-      if (!wasOnline) idle();
+      if (!wasOnline) updateUi();
     }
     Serial.println("GEM READY v=2 input=16000 output=24000 mono=1 bits=16");
     Serial.printf("GEM STATE configured=%u wifi=%u pc=%u\n", configured ? 1 : 0, WiFi.status() == WL_CONNECTED ? 1 : 0, pcReady() ? 1 : 0);
+    Serial.printf("GEM UI stage=1 mode=%u asleep=%u mic=%u\n", static_cast<unsigned>(face.state.mode), face.state.asleep ? 1 : 0, M5.Mic.isRunning() ? 1 : 0);
     Serial.println(lastCapture); Serial.println(lastResult);
   }
   else if (strncmp(command, "GEM CONFIG ", 11) == 0) configure();
@@ -245,24 +270,33 @@ void dispatch() {
 }
 void setup() {
   auto cfg = M5.config(); cfg.internal_spk = false; cfg.internal_mic = false; cfg.external_speaker.atomic_echo = true; cfg.serial_baudrate = 115200;
-  M5.begin(cfg); M5.Display.setTextSize(1); M5.Speaker.setVolume(100);
+  M5.begin(cfg); audio.stop(); M5.Display.setTextSize(1); M5.Speaker.setVolume(100);
+  face.begin(); face.set(Mode::Boot);
   input = static_cast<int16_t*>(heap_caps_calloc(captureCapacity, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   output = static_cast<int16_t*>(heap_caps_calloc(maxOutput, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-  if (!input || !output) { display("PSRAM failed"); Serial.println("GEM MEMORY FAIL"); return; }
-  idle(); Serial.println("GEM READY v=2 input=16000 output=24000 mono=1 bits=16");
+  if (!input || !output) { face.set(Mode::Error, "PSRAM failed"); Serial.println("GEM MEMORY FAIL"); return; }
+  face.state.sleep(millis()); idle(); Serial.println("GEM READY v=2 input=16000 output=24000 mono=1 bits=16");
 }
 void loop() {
-  M5.update(); if (!input || !output) { delay(20); return; }
-  if (pcOnline && !pcReady()) { pcOnline = false; Serial.println("GEM PC OFFLINE"); idle(); }
+  M5.update(); updateUi(); if (!input || !output) { delay(20); return; }
+  if (pcOnline && !pcReady()) { pcOnline = false; Serial.println("GEM PC OFFLINE"); updateUi(); }
   if (M5.BtnA.wasPressed()) { pressedAt = millis(); consumed = false; }
   if (!consumed && M5.BtnA.isPressed() && millis() - pressedAt >= 2000) {
-    consumed = true; if (!canRecord()) return;
-    display("Release to record"); const auto releaseWait = millis();
-    while (M5.BtnA.isPressed() && millis() - releaseWait < 10000) { M5.update(); delay(10); }
-    if (M5.BtnA.isPressed()) { Serial.println("GEM START BLOCKED reason=button"); display("Button still held\nRelease and retry"); return; }
+    consumed = true;
+    // A held button waking the device cannot also start a recording.
+    if (face.state.asleep) { face.state.wake(millis()); face.tick(millis(), true); return; }
+    if (!face.state.mayStart() || !canRecord()) return;
+    face.set(Mode::Armed, "Release to record"); const auto releaseWait = millis();
+    while (M5.BtnA.isPressed() && millis() - releaseWait < 10000) { M5.update(); updateUi(); delay(10); }
+    if (M5.BtnA.isPressed()) { Serial.println("GEM START BLOCKED reason=button"); face.set(Mode::Notice, "Release and retry"); waitUi(1500); idle(); return; }
     run(true);
   }
-  if (M5.BtnA.wasReleased() && !consumed) { consumed = true; audio.cue(); idle(); }
+  if (M5.BtnA.wasReleased() && !consumed) {
+    consumed = true; audio.stop();
+    if (face.state.asleep) face.state.wake(millis());
+    else face.state.sleep(millis());
+    face.tick(millis(), true);
+  }
   while (Serial.available()) { const char c = Serial.read();
     if (c == '\n') { command[commandLength] = 0; if (!overflow) dispatch(); memset(command, 0, sizeof(command)); commandLength = 0; overflow = false; }
     else if (c != '\r') { if (commandLength < sizeof(command) - 1) command[commandLength++] = c; else overflow = true; }

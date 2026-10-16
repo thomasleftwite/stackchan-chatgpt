@@ -1,20 +1,20 @@
 # 再開用の短い要約
 
-更新: 2026-10-16（日本時間）/ R04。目的: この長い会話を読み直さず、現在の状態から続ける。
+更新: 2026-10-16（日本時間）/ R05。目的: この長い会話を読み直さず、現在の状態から続ける。
 
 ## 現在地
 
 - 対象はM5AtomS3R + Atomic Voice Base A149、USBはCOM4。Arduino/PlatformIOの開発版。
 - **実機の16kHz/16bit/mono質問音声→Windows PC→Gemini Live gemini-3.8-live→24kHz回答の端末再生が1回成功。ユーザーが日本語回答を確認した。** 詳細な測定値・書込みSHA・証拠は [実機検証](GEMINI_DEVICE_VALIDATION_2026-10-16.md) を参照。
-- 最新の端末は可変長録音のGemini端末版R05 / protocol v2。通常版の呼びかけ待機は現在動かさない。設定領域・Wi-Fi・呼びかけ登録を保持してアプリ本体だけ更新済み。
+- 最新の端末は顔表示Stage1 R01 / protocol v2。短押しでSleep/Wake、ウェイク中の長押しで手動質問。まだ呼びかけ検出は統合しない。COM4アプリ限定書込みハッシュとスリープ起動/マイクtask停止を確認。顔と物理操作は確認待ち。設定領域・Wi-Fi・呼びかけ登録は保持。[段階計画](FACE_MODES_STAGE1.md)を参照。前段の音声成功版R05の復旧イメージは保存済み。
 - 固定3秒から発話終了時送信へ変更済み。環境音測定後の無発話は2回EMPTY、可変長の実質問も2.32秒分送信→回答再生に成功。ユーザーがSpeak nowへの移行と日本語回答を確認した。PC26/C++27件に加え、録音開始UIの実ソース回帰6項目が成功。[録音開始の修正](RECORD_START_FIX_2026-10-16.md)・[可変長録音](VARIABLE_UTTERANCE_VALIDATION_2026-10-16.md)を参照。
 - 前回の管理下の試験後はstop済み。その後ユーザーがStart-Gemini-Device.cmdの一度の終了と、再起動後の正常な会話を報告。終了原因は未解明で、現在の稼働は再取得していない。[最新の進捗資料](DEVELOPMENT_PROGRESS_2026-10-16.md)を参照。端末にStart PC service等が出たら起動用ファイルを再実行する。PC停止時にRelease表示へ残る不具合を修正し、5秒ごとの稼働通知・20秒の期限・正常停止通知を実装した。
 - クラウド公開は保留。AI StudioでStarter対象外を確認したため、ユーザーがローカルPC検証を選択した。課金を有効化しない。
 
 ## 起動と設定
 
-- 実機用は案件ルートの [Start-Gemini-Device.cmd](../Start-Gemini-Device.cmd)。同一家庭内LANとCOM4が必要。PCの接続先・端末トークンをUSBで端末RAMへ渡す。Gemini PC readyを確認してから操作する。リセット/サービス停止後は再実行する。
-- 端末ボタンをRelease to recordまで長押し→離す→開始音後は約1秒静かに待つ→Speak now表示後に質問。約0.7秒の無音で終了、送信全体5秒まで。短押しは確認音、録音/通信/再生中の短押しは中止。PC画面のstopまたは約10分で終了する検証用サービス。
+- 実機用は案件ルートの [Start-Gemini-Device.cmd](../Start-Gemini-Device.cmd)。同一家庭内LANとCOM4が必要。PCの接続先・端末トークンをUSBで端末RAMへ渡す。画面下のPC onlineを確認してから操作する。リセット/サービス停止後は再実行する。
+- 起動直後はSleeping。短押しでウェイクしてReadyにした後、端末ボタンをRelease to recordまで長押し→離す→開始音後は約1秒静かに待つ→Speak now表示後に質問。約0.7秒の無音で終了、送信全体5秒まで。短押しは確認音、録音/通信/再生中の短押しは中止。PC画面のstopまたは約10分で終了する検証用サービス。
 - Geminiキーは既存の非公開 `data/secrets.json` に設定済み。OpenAIキーは不要。キーを端末へ渡さない。`.env`、秘密設定/バックアップ、音声、`.pio`、dist、node_modulesは公開しない。
 - PC単独用Start-Gemini-PC.cmdは既定127.0.0.1で、実機のUSB設定を行わない。操作の詳細は [server/README](../server/README.md)。
 
@@ -27,7 +27,7 @@
 
 ## 再開時に読むもの
 
-1. 本書→ [実機Gemini検証](GEMINI_DEVICE_VALIDATION_2026-10-16.md) → [server/README](../server/README.md)。
+1. 本書→ [顔表示の段階計画](FACE_MODES_STAGE1.md) → [実機Gemini検証](GEMINI_DEVICE_VALIDATION_2026-10-16.md) → [server/README](../server/README.md)。
 2. 経緯が必要な場合だけ [日次引継ぎ](HANDOFF_2026-10-16.md) と [検証履歴](validation.md)。旧時点の「未実装」を現在の状態と混同しない。
 3. 依存はplatformio.ini、server/package.json/lock。PC: Node.js24.15.0、@google/genai2.30.0。実機ビルド環境: atoms3r-gemini-device。
 
@@ -43,3 +43,8 @@
 2026-10-16 21:09（日本時間）、[PR #2](https://github.com/thomasleftwite/stackchan-chatgpt/pull/2)はMERGED。統合コミットは `9e2b0c0ef8d68f75570029c18e3a22792b0ed8ee`。作業基準e6ae4a1と要約6ba8a8bを含む全10コミットをpush/main統合した。ローカルもmainへ切り替え、origin/mainとの一致と秘密設定のバイト一致・Git除外・未追跡を確認。この完了結果の追記はmainへの文書更新として保存する。
 
 上記は前工程の同期結果。今回の可変長録音・録音開始修正と進捗資料は [PR #3](https://github.com/thomasleftwite/stackchan-chatgpt/pull/3)で2026-10-16 22:50 JSTにmain統合済み（merge `a60d1659616a990c0cdcc1474e1ba9648f9a5ddc`）。ローカルもmainへ切替済みで、秘密設定のバイト一致・除外・未追跡と検証済みツリーの一致を確認。[開発進捗](DEVELOPMENT_PROGRESS_2026-10-16.md)に検証・残課題・同期結果を記録した。
+
+
+## 顔表示の第1段階
+
+codex/face-modes-stage1で実装。新規15項目・既存UI6項目・C++27・PC26と3構成ビルド成功。実機の顔/短押し切替をユーザーへ確認中。次はその確認を受け、録音・通信・再生での表示負荷を実機検証してから第2段階（登録済み1パターン統合）へ進む。今回の追加push/main統合は未実施。送信開始から回答の実再生終了・残響待ちまで、ウェイクを含む音声入力を受け付けない最終仕様に合意済み。
