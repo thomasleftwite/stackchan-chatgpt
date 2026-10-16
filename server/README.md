@@ -8,7 +8,7 @@
 
 その後、実機COM4もGemini端末版R01 / protocol v2へ更新し、**実マイク→PC→Gemini→24kHz回答の端末再生に成功、ユーザーが日本語回答を確認した。** [実機記録](../docs/GEMINI_DEVICE_VALIDATION_2026-10-16.md)を参照。現段階は1接続につき1質問・1回答で、会話履歴、連続録音、発話割込みは含まない。
 
-実機向けの起動は案件ルートの `Start-Gemini-Device.cmd`。`local-gemini.ts` / `tools/run_gemini_device.py` が家庭内LANの空きポートとランダム端末トークンを用意しUSB経由で端末RAMへ設定する。現在の端末R04は長押し→Release to recordで離す→開始音後に約1秒静かに待つ→Speak now表示後に発話。約0.7秒無音で送信する可変長で、上限は前後の無音込み5秒。準備中に話すと環境音測定が影響を受けるので表示を待つ。[可変長の検証](../docs/VARIABLE_UTTERANCE_VALIDATION_2026-10-16.md)を参照。PC画面でstop、または最長約10分で停止。以下の `Start-Gemini-PC.cmd` はPC単独向けでUSB設定をしない。
+実機向けの起動は案件ルートの `Start-Gemini-Device.cmd`。`local-gemini.ts` / `tools/run_gemini_device.py` が家庭内LANの空きポートとランダム端末トークンを用意しUSB経由で端末RAMへ設定する。現在の端末R05はGemini PC readyを確認→長押し→Release to recordで離す→開始音後に約1秒静かに待つ→Speak now表示後に発話。約0.7秒無音で送信する可変長で、上限は前後の無音込み5秒。準備中に話すと環境音測定が影響を受けるので表示を待つ。[可変長の検証](../docs/VARIABLE_UTTERANCE_VALIDATION_2026-10-16.md)を参照。PC画面でstop、または最長約10分で停止。PC停止等でRelease表示に残る症状を修正し、可変長の実質問にも成功した。[録音開始の修正](../docs/RECORD_START_FIX_2026-10-16.md)。ツールは5秒ごとにGEM PING、正常停止時にGEM STOPを送る。端末は20秒で稼働通知が切れたことを表示する。現在は試験後stop済み。以下の `Start-Gemini-PC.cmd` はPC単独向けでUSB設定をしない。
 
 ## 起動
 

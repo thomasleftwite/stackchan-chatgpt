@@ -24,6 +24,8 @@ bool overflow = false, configured = false, consumed = true, failed = false, stop
 bool ready = false, inputEnded = false, thinking = false, outputStarted = false;
 bool credit = false, outputEnded = false, played = false, complete = false, closed = false;
 uint32_t generation = 0, pressedAt = 0;
+uint32_t pcSeen = 0;
+bool pcOnline = false;
 livepcm::Output reply;
 char lastResult[160] = "GEM RESULT NONE", lastCapture[160] = "GEM CAPTURE NONE";
 std::atomic<size_t> captured{0};
@@ -47,7 +49,20 @@ void released(void*, void* data, size_t length) {
   captured.store(count + length, std::memory_order_release);
 }
 void display(const char* text) { M5.Display.fillScreen(TFT_BLACK); M5.Display.setCursor(2, 2); M5.Display.print(text); }
-void idle() { display(configured ? "Gemini PC ready\nShort: local beep\nHold: ask (max 5s)\nSilence sends" : "Gemini PC v2\nRun PC device tool\nUSB config only"); }
+bool pcReady() { return configured && pcOnline && millis() - pcSeen < 20000; }
+void idle() {
+  if (!configured) display("Start PC service\nConnect USB\nRun Gemini-Device\non the PC");
+  else if (WiFi.status() != WL_CONNECTED) display("WiFi disconnected\nRestart PC tool");
+  else if (!pcReady()) display("PC service stopped\nRestart PC tool");
+  else display("Gemini PC ready\nShort: local beep\nHold: ask (max 5s)\nSilence sends");
+}
+bool canRecord() {
+  if (!configured || WiFi.status() != WL_CONNECTED || !pcReady()) {
+    Serial.printf("GEM START BLOCKED reason=%s\n", !configured ? "setup" : WiFi.status() != WL_CONNECTED ? "wifi" : "pc");
+    idle(); return false;
+  }
+  return true;
+}
 void wipe() { capturing.store(false); audio.stop(); M5.Mic.setBufferReleaseCallback(nullptr, nullptr); inputCount = 0;
   if (input) memset(input, 0, captureCapacity * 2); if (output) memset(output, 0, maxOutput * 2); }
 void bad(unsigned code) { failed = true; if (!fault) fault = code; }
@@ -183,7 +198,7 @@ bool recordQuestion() {
   Serial.println(lastCapture); return true;
 }
 void run(bool microphone) {
-  if (!configured || WiFi.status() != WL_CONNECTED) { Serial.println("GEM WIFI FAIL"); return; }
+  if (!canRecord()) return;
   wipe();
   if (microphone) {
     if (!recordQuestion()) { wipe(); delay(1500); M5.update(); consumed = true; idle(); return; }
@@ -210,12 +225,22 @@ void configure() {
   strlcpy(host, candidateHost, sizeof(host)); strlcpy(token, candidateToken, sizeof(token)); port = candidatePort; memset(candidateToken, 0, sizeof(candidateToken));
   Serial.println("GEM CONFIG OK"); display("Connecting WiFi\nSaved settings"); WiFi.persistent(false); WiFi.mode(WIFI_STA); WiFi.begin();
   const auto started = millis(); while (WiFi.status() != WL_CONNECTED && millis() - started < 15000) delay(20);
-  configured = WiFi.status() == WL_CONNECTED; Serial.println(configured ? "GEM WIFI CONNECTED" : "GEM WIFI FAIL"); idle();
+  configured = WiFi.status() == WL_CONNECTED; pcOnline = configured; pcSeen = millis();
+  Serial.println(configured ? "GEM WIFI CONNECTED" : "GEM WIFI FAIL"); idle();
 }
 void dispatch() {
-  if (strcmp(command, "GEM INFO") == 0) { Serial.println("GEM READY v=2 input=16000 output=24000 mono=1 bits=16"); Serial.println(lastCapture); Serial.println(lastResult); }
+  if (strcmp(command, "GEM PING") == 0 || strcmp(command, "GEM INFO") == 0) {
+    if (strcmp(command, "GEM PING") == 0 && configured) {
+      const bool wasOnline = pcReady(); pcSeen = millis(); pcOnline = true;
+      if (!wasOnline) idle();
+    }
+    Serial.println("GEM READY v=2 input=16000 output=24000 mono=1 bits=16");
+    Serial.printf("GEM STATE configured=%u wifi=%u pc=%u\n", configured ? 1 : 0, WiFi.status() == WL_CONNECTED ? 1 : 0, pcReady() ? 1 : 0);
+    Serial.println(lastCapture); Serial.println(lastResult);
+  }
   else if (strncmp(command, "GEM CONFIG ", 11) == 0) configure();
   else if (strcmp(command, "GEM PROBE") == 0) run(false);
+  else if (strcmp(command, "GEM STOP") == 0) { pcOnline = false; configured = false; memset(token, 0, sizeof(token)); memset(auth, 0, sizeof(auth)); Serial.println("GEM PC OFFLINE"); idle(); }
 }
 }
 void setup() {
@@ -228,9 +253,14 @@ void setup() {
 }
 void loop() {
   M5.update(); if (!input || !output) { delay(20); return; }
+  if (pcOnline && !pcReady()) { pcOnline = false; Serial.println("GEM PC OFFLINE"); idle(); }
   if (M5.BtnA.wasPressed()) { pressedAt = millis(); consumed = false; }
   if (!consumed && M5.BtnA.isPressed() && millis() - pressedAt >= 2000) {
-    consumed = true; display("Release to record"); while (M5.BtnA.isPressed()) { M5.update(); delay(10); } run(true);
+    consumed = true; if (!canRecord()) return;
+    display("Release to record"); const auto releaseWait = millis();
+    while (M5.BtnA.isPressed() && millis() - releaseWait < 10000) { M5.update(); delay(10); }
+    if (M5.BtnA.isPressed()) { Serial.println("GEM START BLOCKED reason=button"); display("Button still held\nRelease and retry"); return; }
+    run(true);
   }
   if (M5.BtnA.wasReleased() && !consumed) { consumed = true; audio.cue(); idle(); }
   while (Serial.available()) { const char c = Serial.read();

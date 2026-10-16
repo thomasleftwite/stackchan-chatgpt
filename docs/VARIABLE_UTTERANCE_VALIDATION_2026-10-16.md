@@ -1,6 +1,6 @@
 # 発話終了で送信する可変長録音
 
-版: R03 / 更新: 2026-10-16（日本時間）。対象: COM4のM5AtomS3R + Atomic Voice Base A149、Gemini端末版R04。目的: 従来の3秒固定録音を可変長へ変更し、無発話では外部APIを呼ばない。
+版: R04 / 更新: 2026-10-16（日本時間）。対象: COM4のM5AtomS3R + Atomic Voice Base A149、Gemini端末版R05。目的: 従来の3秒固定録音を可変長へ変更し、無発話では外部APIを呼ばない。
 
 案件ルート: `C:\Users\thoma\SynologyDrive\H\Doc\Src\Codex\projects\ai-stackchan\AI_StackChan_Ex\Stackchan-chatgpt`
 
@@ -18,7 +18,7 @@
 
 依存・復旧元は [R01実機検証](GEMINI_DEVICE_VALIDATION_2026-10-16.md)。PlatformIO環境atoms3r-gemini-device、espressif32 6.11.0、Arduino-ESP32 2.0.17、M5Unified0.2.26、M5GFX0.2.33、WebSockets2.7.3、ArduinoJson7.4.2。依存の追加/変更なし。固定SDKのMic_Class.hpp/inlを読み、callbackから同一レートでrecord可能な契約とDMA持越しを確認した。
 
-現イメージ `.pio/firmware-snapshots/gemini-device-r04.bin`、1,139,520B、SHA256 `DAF386597A4BA7B5657D64FE2CCDE4AD54117C7A313CF3CA0909A9B00F7F5FAD`。ビルド成功、静的RAM50,300B、Flash1,139,149B。COM4へ0x10000のアプリだけを書込み、消去0x10000〜0x126fff、ハッシュ検証成功。SPIFFS/NVS/保存済みWi-Fi/呼びかけ登録は変更しない。
+現イメージはR05。PC準備不足/Wi-Fi切断時にRelease表示へ残る不具合とPC停止検出を修正し、実質問の回答再生まで確認した。イメージSHA・書込み・回帰試験・実測は [録音開始の修正](RECORD_START_FIX_2026-10-16.md) を参照。SPIFFS/NVS/保存済みWi-Fi/呼びかけ登録は保持する。R04イメージは `.pio/firmware-snapshots/gemini-device-r04.bin`、1,139,520B、SHA256 `DAF386597A4BA7B5657D64FE2CCDE4AD54117C7A313CF3CA0909A9B00F7F5FAD` を履歴として保持。
 
 R03の感度調整に加え、R04は正常な終了指示とcallbackからの次要求が競合した場合の拒否を録音失敗と数えないようにした。感度/録音範囲は同じ。R03イメージは1,139,488B、SHA256 `BBE6849FE9C2CC3A8D44332CC0EF65D47E75CA5DC7488A1EAFA000A063303D1D` を保持する。
 
@@ -34,7 +34,7 @@ R03の感度調整に加え、R04は正常な終了指示とcallbackからの次
 | APIなしの実機合成試験 | VADで先頭無音を除いた24,000サンプルを送信→24kHz確認音12,001サンプル/26フレーム→実再生終了。R02は2,309ms、R03は2,302msでPASS |
 | R02の無発話終了 | 不合格。ユーザーが2回とも無言と確認したが、35,840サンプル/2,312ms/RMS365と76,800サンプル/4,878ms/RMS389を発話と誤検出。いずれもfixtureなのでGoogle送信なし。固定しきい値500をR03の環境音測定へ変更 |
 | R03の無発話終了 | 合格。環境音RMS219、しきい値750。96,000サンプル/6,056msでEMPTY、ユーザーがNo speechで戻ることを確認。別試行も96,000/6,055msでEMPTY。環境測定1秒＋待機5秒、通信なし |
-| 可変長の実質問→Gemini回答 | 未実施 |
+| 可変長の実質問→Gemini回答 | R05で成功、ユーザーが回答を聴取。収集67,840/4,297msから37,120サンプル（2.32秒）を切り出し、末尾無音で終了。24kHz回答56,400サンプル/118フレーム、実再生終了まで13,743ms |
 
 合成試験と無発話の確認ではfixtureを使い、Google APIへ送信しない。実マイクのGemini送信は前回のユーザー明示許可の範囲で物理ボタンからのみ行う。音声本文・回答本文・APIキー・端末トークン・接続先は保存しない。数値と許可済み状態だけを `.pio/device-check/` に記録する。
 

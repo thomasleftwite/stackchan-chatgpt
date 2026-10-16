@@ -44,7 +44,8 @@
 | 完了 | 実機向けPC起動・USBのRAM設定 | 2026-10-16 | Start-Gemini-Device.cmd、server/local-gemini.ts、tools/run_gemini_device.py。LANの空きポート/ランダムトークンをUSB転送し保存しない。認証拒否・合成可変長12,001サンプル再生を確認。試験後サービス停止、最長約10分の一時検証用 |
 | 未実装 | 連続送受信・会話履歴・長時間評価 | — | 現PC版は最大5秒入力/10秒回答の1質問1回答。連続DMA取得、低遅延送信、複数ターン、再接続/異常系の実機確認、TLS/クラウドは未検証 |
 | 基本確認済み | 環境音に合わせた発話終了判定・無発話では送信しない | 2026-10-16 | include/UtteranceWindow.h、src/LocalGemini.cpp、docs/VARIABLE_UTTERANCE_VALIDATION_2026-10-16.md。R02誤検出を修正しR03の無発話2回でEMPTY。環境音RMS219/しきい値750、約6.06秒で終了。R04へ終了時競合の修正を含めてアプリ限定導入済み。C++27/27、PC26/26、ビルド/書込みハッシュ成功 |
-| 確認中 | 可変長の実質問からGemini回答再生 | — | R04でSpeak now後の発話→末尾無音で送信を実機確認中。固定3秒の初回成功と区別する |
+| 基本確認済み | 可変長の実質問からGemini回答再生 | 2026-10-16 | docs/RECORD_START_FIX_2026-10-16.md。R05で発話末尾無音により37,120サンプル/2.32秒を送信→24kHz回答56,400/118フレーム→再生完了13,743ms。ユーザーがSpeak nowへの移行と回答を確認 |
+| 完了 | Release表示に残る録音開始前の不具合修正 | 2026-10-16 | src/LocalGemini.cpp、tests/gemini_ui_test.cpp、tools/run_host_tests.py --suite gemini-ui。実ソースで未設定/切断の症状をFAIL再現→修正後6項目成功。PCの稼働通知/停止通知/期限、ボタン離し待ち上限を追加。R05アプリ限定書込みハッシュ・実機再試験成功、サービス停止済み |
 
 詳細な証拠、絶対パス、未確認事項は [検証記録](docs/validation.md) を参照する。
 
