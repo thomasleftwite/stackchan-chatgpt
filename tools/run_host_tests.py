@@ -1,5 +1,6 @@
 """Compile and run the actual portable C++ rules. No device or API is used."""
 from pathlib import Path
+import argparse
 import os
 import shutil
 import subprocess
@@ -9,14 +10,19 @@ OUT = ROOT / ".pio" / "host-tests"
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--suite', choices=['rules', 'gemini-ui'], default='rules')
+    args = parser.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
-    source = ROOT / "tests" / "conversation_rules_test.cpp"
-    binary = OUT / ("conversation_rules_test.exe" if os.name == "nt" else "conversation_rules_test")
+    source = ROOT / "tests" / ("gemini_ui_test.cpp" if args.suite == 'gemini-ui' else "conversation_rules_test.cpp")
+    binary = OUT / (source.stem + (".exe" if os.name == "nt" else ""))
+    includes = [ROOT / 'include']
+    if args.suite == 'gemini-ui': includes.append(ROOT / 'tests/firmware_ui_stubs')
     compiler = next((shutil.which(c) for c in ("c++", "g++", "clang++") if shutil.which(c)), None)
     env = os.environ.copy()
     if compiler:
         command = [compiler, "-std=c++17", "-Wall", "-Wextra", "-Werror",
-                   "-I", str(ROOT / "include"), str(source), "-o", str(binary)]
+                   *[flag for folder in includes for flag in ('-I', str(folder))], str(source), "-o", str(binary)]
     else:
         compiler = shutil.which("cl")
         if not compiler:
@@ -40,8 +46,8 @@ def main():
         if not compiler:
             raise SystemExit("MSVC compiler was not found.")
         command = [compiler, "/nologo", "/EHsc", "/std:c++17", "/W4", "/WX", "/utf-8",
-                   "/I" + str(ROOT / "include"), str(source), "/Fe:" + str(binary),
-                   "/Fo:" + str(OUT / "conversation_rules_test.obj")]
+                   *['/I' + str(folder) for folder in includes], str(source), "/Fe:" + str(binary),
+                   "/Fo:" + str(OUT / (source.stem + ".obj"))]
     subprocess.run(command, cwd=OUT, env=env, check=True)
     subprocess.run([str(binary)], cwd=OUT, check=True)
 

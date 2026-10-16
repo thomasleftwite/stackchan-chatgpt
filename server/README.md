@@ -4,11 +4,11 @@
 
 目的: AtomS3R + Atomic Voice Baseの16kHzマイク入力をPCで受け、Gemini Liveの24kHz回答音声を端末へ返す。クラウド公開はユーザー指定で保留し、現在はWindows PCで検証する。
 
-保存済みGeminiキーで `gemini-3.8-live` の利用と24kHz音声応答を確認した。さらに、生成した試験音声を16kHzへ変換し、認証付きPC WebSocketサービス→Gemini Live音声入力→24kHz回答受信まで成功。自動テストは25/25成功。詳細は [PC検証記録](../docs/GEMINI_PC_VALIDATION_2026-10-16.md)。
+保存済みGeminiキーで `gemini-3.8-live` の利用と24kHz音声応答を確認した。さらに、生成した試験音声を16kHzへ変換し、認証付きPC WebSocketサービス→Gemini Live音声入力→24kHz回答受信まで成功。最新の自動テストは26/26成功（5秒入力上限の全経路試験を追加）。初回の詳細は [PC検証記録](../docs/GEMINI_PC_VALIDATION_2026-10-16.md)。
 
 その後、実機COM4もGemini端末版R01 / protocol v2へ更新し、**実マイク→PC→Gemini→24kHz回答の端末再生に成功、ユーザーが日本語回答を確認した。** [実機記録](../docs/GEMINI_DEVICE_VALIDATION_2026-10-16.md)を参照。現段階は1接続につき1質問・1回答で、会話履歴、連続録音、発話割込みは含まない。
 
-実機向けの起動は案件ルートの `Start-Gemini-Device.cmd`。`local-gemini.ts` / `tools/run_gemini_device.py` が家庭内LANの空きポートとランダム端末トークンを用意しUSB経由で端末RAMへ設定する。ボタン長押し→Release to recordで離す→開始音後3秒間で質問する。PC画面でstop、または最長約10分で停止。試験後は停止済み。以下の `Start-Gemini-PC.cmd` はPC単独向けでUSB設定をしない。
+実機向けの起動は案件ルートの `Start-Gemini-Device.cmd`。`local-gemini.ts` / `tools/run_gemini_device.py` が家庭内LANの空きポートとランダム端末トークンを用意しUSB経由で端末RAMへ設定する。現在の端末R05はGemini PC readyを確認→長押し→Release to recordで離す→開始音後に約1秒静かに待つ→Speak now表示後に発話。約0.7秒無音で送信する可変長で、上限は前後の無音込み5秒。準備中に話すと環境音測定が影響を受けるので表示を待つ。[可変長の検証](../docs/VARIABLE_UTTERANCE_VALIDATION_2026-10-16.md)を参照。PC画面でstop、または最長約10分で停止。PC停止等でRelease表示に残る症状を修正し、可変長の実質問にも成功した。[録音開始の修正](../docs/RECORD_START_FIX_2026-10-16.md)。ツールは5秒ごとにGEM PING、正常停止時にGEM STOPを送る。端末は20秒で稼働通知が切れたことを表示する。前回の管理下の試験はstop済み。その後ユーザーが起動用ファイルの一度の終了と、再起動後の正常動作を報告した。終了原因は未解明で、約10分の期限終了との区別も未確認。[開発進捗](../docs/DEVELOPMENT_PROGRESS_2026-10-16.md)を参照。以下の `Start-Gemini-PC.cmd` はPC単独向けでUSB設定をしない。
 
 ## 起動
 

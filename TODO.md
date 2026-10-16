@@ -43,6 +43,9 @@
 | 基本確認済み | 実機のGemini中継v2対応・回答再生 | 2026-10-16 | docs/GEMINI_DEVICE_VALIDATION_2026-10-16.md R01、src/LocalGemini.cpp、include/LivePcm.h。アプリ限定書込み・ハッシュ検証成功、C++19/19。3秒入力48,000→回答47,040サンプル/98フレーム、実再生終了まで14,454ms、ユーザーが日本語回答を確認 |
 | 完了 | 実機向けPC起動・USBのRAM設定 | 2026-10-16 | Start-Gemini-Device.cmd、server/local-gemini.ts、tools/run_gemini_device.py。LANの空きポート/ランダムトークンをUSB転送し保存しない。認証拒否・合成可変長12,001サンプル再生を確認。試験後サービス停止、最長約10分の一時検証用 |
 | 未実装 | 連続送受信・会話履歴・長時間評価 | — | 現PC版は最大5秒入力/10秒回答の1質問1回答。連続DMA取得、低遅延送信、複数ターン、再接続/異常系の実機確認、TLS/クラウドは未検証 |
+| 基本確認済み | 環境音に合わせた発話終了判定・無発話では送信しない | 2026-10-16 | include/UtteranceWindow.h、src/LocalGemini.cpp、docs/VARIABLE_UTTERANCE_VALIDATION_2026-10-16.md。R02誤検出を修正しR03の無発話2回でEMPTY。環境音RMS219/しきい値750、約6.06秒で終了。R04へ終了時競合の修正を含めてアプリ限定導入済み。C++27/27、PC26/26、ビルド/書込みハッシュ成功 |
+| 基本確認済み | 可変長の実質問からGemini回答再生 | 2026-10-16 | docs/RECORD_START_FIX_2026-10-16.md。R05で発話末尾無音により37,120サンプル/2.32秒を送信→24kHz回答56,400/118フレーム→再生完了13,743ms。ユーザーがSpeak nowへの移行と回答を確認 |
+| 完了 | Release表示に残る録音開始前の不具合修正 | 2026-10-16 | src/LocalGemini.cpp、tests/gemini_ui_test.cpp、tools/run_host_tests.py --suite gemini-ui。実ソースで未設定/切断の症状をFAIL再現→修正後6項目成功。PCの稼働通知/停止通知/期限、ボタン離し待ち上限を追加。R05アプリ限定書込みハッシュ・実機再試験成功、サービス停止済み |
 
 詳細な証拠、絶対パス、未確認事項は [検証記録](docs/validation.md) を参照する。
 
@@ -52,3 +55,11 @@
 |---|---|---|---|
 | 完了 | 会話の短い再開要約 | 2026-10-16 | docs/RESUME.md R01、docs/HANDOFF_2026-10-16.md R9。現在状態/起動/制限/残作業/参照資料を整理 |
 | 完了 | Gemini中継・実機成功までのGitHub push/main統合 | 2026-10-16 | [PR #2](https://github.com/thomasleftwite/stackchan-chatgpt/pull/2) MERGED、merge 9e2b0c0。main同期、秘密設定のバイト一致/除外/未追跡を確認。PC25/25、C++19/19、ビルド2/2成功 |
+
+## 会話成立時点の記録・同期（2026-10-16）
+
+| 状態 | 項目 | 完了日 | 成果物・検証 |
+|---|---|---|---|
+| 完了 | 会話成立段階の開発進捗整理 | 2026-10-16 | docs/DEVELOPMENT_PROGRESS_2026-10-16.md R01、RESUME R04、HANDOFF R12。PC26/26、C++27/27、録音UI6項目、端末ビルド成功。今回の端末/API追加操作なし |
+| 未解明・継続観察 | Start-Gemini-Device.cmdの一度の終了 | — | ユーザー報告で再起動後の会話は正常。終了コード/経過時間未取得、約10分の期限終了との区別も未確認。再発時に秘密情報を除いた段階/コードを確認 |
+| 進行中 | 可変長録音・録音開始修正・進捗資料のpush/main統合 | — | codex/variable-utterance。公開履歴の秘密情報検査とPRマージ、設定保持・同期一致の確認後に完了へ更新 |

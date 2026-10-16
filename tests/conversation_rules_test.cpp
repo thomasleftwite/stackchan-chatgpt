@@ -1,6 +1,7 @@
 #include "ConversationRules.h"
 #include "ProbeResample.h"
 #include "LivePcm.h"
+#include "UtteranceWindow.h"
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -152,6 +153,70 @@ int main() {
     livepcm::write32(packet.data() + 4, 0); require(!state.accept(packet.data(), packet.size() - 2));
     packet[10] = 1; require(!state.accept(packet.data(), packet.size())); packet[10] = 0;
     require(state.accept(packet.data(), packet.size())); require(state.complete());
+  });
+  test("utterance silence exits locally at five seconds and stays terminal", [] {
+    UtteranceWindow w; w.reset();
+    for (unsigned i = 0; i < 249; ++i) require(w.push(quiet.data(), quiet.size()) == UtteranceWindow::Result::Waiting);
+    require(w.push(quiet.data(), quiet.size()) == UtteranceWindow::Result::Empty); require(w.samples() == 0);
+    auto f = voice(); require(w.push(f.data(), f.size()) == UtteranceWindow::Result::Empty);
+  });
+  test("utterance trims leading silence with pre-roll and ends on trailing silence", [] {
+    UtteranceWindow w; w.reset(); auto f = voice();
+    for (unsigned i = 0; i < 40; ++i) w.push(quiet.data(), quiet.size());
+    for (unsigned i = 0; i < 30; ++i) w.push(f.data(), f.size());
+    for (unsigned i = 0; i < 34; ++i) require(w.push(quiet.data(), quiet.size()) == UtteranceWindow::Result::Recording);
+    require(w.push(quiet.data(), quiet.size()) == UtteranceWindow::Result::Complete);
+    require(w.start() == 9600 && w.samples() == 24000 && w.processed() == 33600 && !w.limited());
+  });
+  test("utterance rejects short noise and starts a fresh window for speech", [] {
+    UtteranceWindow w; w.reset(); auto f = voice();
+    for (unsigned i = 0; i < 4; ++i) w.push(f.data(), f.size());
+    for (unsigned i = 0; i < 50; ++i) w.push(quiet.data(), quiet.size());
+    for (unsigned i = 0; i < 10; ++i) w.push(f.data(), f.size());
+    for (unsigned i = 0; i < 35; ++i) w.push(quiet.data(), quiet.size());
+    require(w.terminal() && w.start() == 14080 && w.samples() == 17600);
+  });
+  test("utterance sustained voice respects API bound including pre-roll", [] {
+    for (unsigned lead : {0u, 40u, 249u}) {
+      UtteranceWindow w; w.reset(); auto f = voice();
+      for (unsigned i = 0; i < lead; ++i) w.push(quiet.data(), quiet.size());
+      for (unsigned i = 0; i < 240; ++i) w.push(f.data(), f.size());
+      require(w.limited() && w.samples() <= 80000 && w.start() + w.samples() <= UtteranceWindow::capacity);
+      require(w.samples() == (lead == 0 ? 76800u : 80000u));
+    }
+  });
+  test("utterance malformed input fails closed and reset clears old speech", [] {
+    UtteranceWindow w; w.reset(); auto f = voice();
+    require(w.push(f.data(), 319) == UtteranceWindow::Result::Empty); require(w.samples() == 0);
+    w.reset(); for (unsigned i = 0; i < 20; ++i) w.push(f.data(), f.size());
+    w.reset(); require(w.start() == 0 && w.samples() == 0 && !w.terminal());
+    require(w.push(nullptr, 320) == UtteranceWindow::Result::Empty);
+  });
+  test("ambient calibration ignores startup transients and rejects steady room noise", [] {
+    AmbientGate ambient; ambient.reset(); auto loud = voice(); Frame room{};
+    for (size_t i = 0; i < room.size(); ++i) room[i] = i % 2 ? 400 : -400;
+    for (unsigned i = 0; i < 20; ++i) require(ambient.push(loud.data(), loud.size()));
+    require(!ambient.ready());
+    for (unsigned i = 0; i < 30; ++i) ambient.push(room.data(), room.size());
+    require(ambient.usable() && ambient.noise() == 400 && ambient.threshold() == 1200);
+    UtteranceWindow window; window.reset(ambient.threshold());
+    for (unsigned i = 0; i < 250; ++i) window.push(room.data(), room.size());
+    require(window.terminal() && window.samples() == 0);
+  });
+  test("ambient threshold has a floor, removes negative DC and rejects excessive noise", [] {
+    AmbientGate ambient; ambient.reset(); Frame dc{}; dc.fill(-1000);
+    for (unsigned i = 0; i < 50; ++i) ambient.push(dc.data(), dc.size());
+    require(ambient.noise() == 0 && ambient.threshold() == 750 && ambient.usable());
+    ambient.reset(); auto f = voice();
+    for (unsigned i = 0; i < 50; ++i) ambient.push(f.data(), f.size());
+    require(ambient.ready() && !ambient.usable());
+  });
+  test("calibrated utterance accepts speech above its measured noise threshold", [] {
+    UtteranceWindow window; window.reset(1200); auto f = voice();
+    for (auto& value : f) value *= 2;
+    for (unsigned i = 0; i < 20; ++i) window.push(f.data(), f.size());
+    for (unsigned i = 0; i < 35; ++i) window.push(quiet.data(), quiet.size());
+    require(window.terminal() && window.samples() == 17600);
   });
   std::cout << passed << " tests passed\n";
 }
