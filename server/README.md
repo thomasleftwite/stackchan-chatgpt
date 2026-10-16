@@ -10,7 +10,7 @@
 
 実機向けの起動は案件ルートの `Start-Gemini-Device.cmd`。`local-gemini.ts` / `tools/run_gemini_device.py` が家庭内LANの空きポートとランダム端末トークンを用意しUSB経由で端末RAMへ設定する。R05はGemini PC readyを確認→長押し→Release to recordで離す→開始音後に約1秒静かに待つ→Speak now表示後に発話。約0.7秒無音で送信する可変長で、上限は前後の無音込み5秒。準備中に話すと環境音測定が影響を受けるので表示を待つ。[可変長の検証](../docs/VARIABLE_UTTERANCE_VALIDATION_2026-10-16.md)を参照。PC画面でstop、または最長約10分で停止。PC停止等でRelease表示に残る症状を修正し、可変長の実質問にも成功した。[録音開始の修正](../docs/RECORD_START_FIX_2026-10-16.md)。ツールは5秒ごとにGEM PING、正常停止時にGEM STOPを送る。端末は20秒で稼働通知が切れたことを表示する。前回の管理下の試験はstop済み。その後ユーザーが起動用ファイルの一度の終了と、再起動後の正常動作を報告した。終了原因は未解明で、約10分の期限終了との区別も未確認。[開発進捗](../docs/DEVELOPMENT_PROGRESS_2026-10-16.md)を参照。以下の `Start-Gemini-PC.cmd` はPC単独向けでUSB設定をしない。
 
-現在の実機は顔表示Stage1 R01へ更新済み。起動直後はSleeping、短押しでReady、PC onlineを確認してから長押し・離す操作で質問する。Readyで短押しするとスリープへ戻る。まだウェイクワードを検出しない。新ファームウェアでの実機音声回帰は未実施、顔・ボタンの確認待ち。[段階開発](../docs/FACE_MODES_STAGE1.md)を参照。上記R05の会話成功は前段の結果。
+現在の実機は顔表示Stage1 R01へ更新済み。起動直後はSleeping、短押しでReady、PC onlineを確認してから長押し・離す操作で質問する。Readyで短押しするとスリープへ戻る。まだウェイクワードを検出しない。新ファームウェアでの実機音声回帰は未実施、顔表示と短押し切替はユーザー確認済み。[段階開発](../docs/FACE_MODES_STAGE1.md)を参照。上記R05の会話成功は前段の結果。
 
 ## 起動
 
