@@ -246,3 +246,17 @@ APIキーは導入せず、会話APIは試験しない。初期化後はWi-Fi設
 最低Node版を揃えたソース束R02は `.pio/publish/stackchan-echo-probe-r02.zip`、13ファイル、26,440 bytes、SHA256 `10B493E9AEA559018FF579B6DC7039F4AED08DC5598F27445404156B90CADA8F`。R01は履歴として保持。R02もZIP整合と実キー/秘密設定/生成物を含まないことを確認した。
 
 その後ユーザーがAPI用「Stackchan-chatgpt」プロジェクトを作成。AI StudioのProjects一覧に名称と無料枠表示を確認したが、BuildアプリやStarter公開枠とは区別した。Build作成を再試行するとアプリの生成が始まった。先の権限エラーの原因がプロジェクト不在だったと断定する対照試験ではない。生成コード・Secret・公開条件は引き続き未確認。
+
+### Buildアプリの実在確認とプレビュー検査
+
+- Buildアプリ「Stackchan Echo Probe」の作成とCode/Previewを確認。初期生成版はNext.js/custom Nodeサーバであり、ローカルで試験した `server/` と同一ではない。初期ソースではready/PCM構造検証・送受信量制限・終了処理が不足し、プレビューにはヘルス404 HTMLと成功表示の混在があった。公開前の修正を依頼し、生成完了を待っている。
+- 開発プレビューURLへの外部HTTP/WS試験は5秒期限、資格情報なし、合成音声も未送信で実施。ヘルス404・non-JSON、未認証WSS302。302はプレビューの認証/転送である可能性があり、公開サーバの未認証401を確認したことにはならない。WebSocket非対応とも断定しない。
+- 公開案内にはアプリURLが公開される旨と無効のGet startedを確認した。生成中の観測であり恒久的な公開制限とは断定しない。Starter選択画面は未確認。公開・課金変更・Secret登録・Gemini呼出し・実機書込みなし。
+- 初期の公開コードのみ `.pio/ai-studio/server-initial.ts` と `package-initial.json` に保存。秘密の可能性がある `.env.local` は開かず保存しない。ZIPダウンロードは完了を確認できていないので成果に数えない。
+
+### Starter対象外の確定表示（同日・上記の後）
+
+- 生成処理完了後はGet startedが有効になった。その先の公開設定「Confirm project and billing」に **You are not eligible for the Starter Tier.** を確認した。画面は `.pio/device-check/ai-studio-starter-ineligible-r01.jpg`。現在のアカウントでのStarter公開が停止点。先の一時的な権限エラーとは分ける。
+- [公式ガイド](https://ai.google.dev/gemini-api/docs/aistudio-deploying#about-the-starter-tier)を再確認。Workspace、有料Cloud課金の現在/過去の利用、活動証拠不足が対象外となり得る条件。どれが該当するかは不明。標準公開には課金有効化が必要なため、課金なし希望のまま自動切替は行わない。
+- 修正生成版326行を `.pio/ai-studio/server-generated-r02.ts` に保存。ready、PCMヘッダ検証、帯域制限、close期限などを確認したが、弱いトークン拒否・空PCM拒否・close中も接続枠維持などローカル版との差分が残る。ローカル11/11の結果はこの生成版へ転用しない。
+- 修正後プレビューも実際のHTTP404を画面表示した。生成側の「end-to-end verified」報告は公開ホスト検証ではない。公開・Secret登録・課金設定・Gemini呼出し・端末変更は引き続きなし。
