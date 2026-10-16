@@ -1,8 +1,8 @@
 # Stackchan-chatgpt
 
-2026-10-16更新。保存済みGeminiキーで **PCサービス→Gemini Live音声入力→24kHz回答受信に成功**しました。ローカルPC用中継は `0.2.0-dev`、自動テスト25/25成功。OpenAIキーは不要です。起動は [Start-Gemini-PC.cmd](Start-Gemini-PC.cmd)、手順は [サーバ説明](server/README.md)、結果と未確認範囲は [PC検証記録](docs/GEMINI_PC_VALIDATION_2026-10-16.md) を参照してください。
+2026-10-16更新。**実機マイク→ローカルPC→Gemini Live→端末の24kHz回答再生に成功**し、ユーザーが日本語回答の聴取を確認しました。OpenAIキーは不要です。端末版R01 / PC中継 `0.2.0-dev`、PCテスト25/25・C++19/19成功。実機向け起動は [Start-Gemini-Device.cmd](Start-Gemini-Device.cmd)、手順・実測は [実機Gemini検証](docs/GEMINI_DEVICE_VALIDATION_2026-10-16.md)、PC単独試験は [PC検証記録](docs/GEMINI_PC_VALIDATION_2026-10-16.md) を参照してください。
 
-実機COM4はLAN診断版R04のままで、新しいGeminiサービスに必要なprotocol v2への対応は未実装です。今回の実API試験は生成した試験音声を使用しており、実機でのGemini回答再生は未検証です。PCサービスは起動確認後に停止済み、既定はPC内限定です。再開位置は [TODO](TODO.md) と [引継ぎ](docs/HANDOFF_2026-10-16.md) に記載しています。
+実機COM4は新しいGemini端末版R01/protocol v2です。3秒録音・1質問1回答で、呼びかけ待機や会話履歴は未対応です。実機試験後の一時PCサービスは停止済み。起動用ファイルを開き、端末を長押し→離す→開始音後に発話すると試せます。サービスは最長約10分、再試験は再実行してください。再開位置は [TODO](TODO.md) と [引継ぎ](docs/HANDOFF_2026-10-16.md) に記載しています。
 
 AtomS3R + Atomic Voice Base（旧称Atomic Echo Base、SKU A149）用の音声チャット端末です。
 C++ / Arduino-ESP32 / PlatformIOで開発し、ESP-IDFプロジェクトは使用しません。
@@ -10,14 +10,14 @@ C++ / Arduino-ESP32 / PlatformIOで開発し、ESP-IDFプロジェクトは使�
 - Wi-Fi: WiFiManager
 - 待機: 端末内の録音比較（SimpleVox MFCC/DTW）またはボタン
 - 従来の端末単体版の会話: OpenAI Realtime文字起こし → Gemini回答生成 → OpenAI Realtime読み上げ
-- 新しいPC中継版: 16kHz PCM入力 → Gemini Live → 24kHz PCM回答（実機統合は次段階）
+- 新しいPC中継版: 16kHz PCM入力 → Gemini Live → 24kHz PCM回答（実機で基本確認済み）
 - 録音・再生は切替式。全二重・発話割り込みは対象外です。
 
 実機・実APIの検証状況は [検証記録](docs/validation.md) を参照してください。
 
 2026-10-16時点の [再開用引継ぎ](docs/HANDOFF_2026-10-16.md) と [Node.js中継 + Gemini Live構成の検討](docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md) を保存しています。以下のセットアップ・操作は従来の端末単体版 `0.1.0-dev` 向けです。PC中継版は [server/README](server/README.md) を使用してください。
 
-クラウド中継は **AI Studio Buildから公開するCloud Run** を想定しましたが、Starter対象外のため公開を保留しました。ローカル検証では **実機LANで16kHz PCMをPCへ送り、24kHzへ変換して端末へ戻す基本試験に成功**し、ユーザーが自然な自声の再生を確認しています。[LAN検証記録](docs/LAN_PCM_VALIDATION_2026-10-16.md)、[単体音声検証](docs/LOCAL_AUDIO_VALIDATION_2026-10-16.md) を参照してください。これは今回のPC/Gemini試験とは別の結果です。連続ストリーミング・実機Gemini会話・WSS/TLSは未検証です。
+クラウド中継は **AI Studio Buildから公開するCloud Run** を想定しましたが、Starter対象外のため公開を保留しました。実機LANの自声再生、PCのGemini単独試験を経て、実機のGemini回答再生まで基本確認しています。[LAN検証記録](docs/LAN_PCM_VALIDATION_2026-10-16.md)、[単体音声検証](docs/LOCAL_AUDIO_VALIDATION_2026-10-16.md) は各段階の履歴です。連続ストリーミング・複数ターンの会話・WSS/TLS・長時間運転は未検証です。
 
 ## 従来の端末単体版セットアップ
 

@@ -4,6 +4,8 @@
 
 案件ルート（以下の成果物の基準）: `C:\Users\thoma\SynologyDrive\H\Doc\Src\Codex\projects\ai-stackchan\AI_StackChan_Ex\Stackchan-chatgpt`
 
+その後の追記: 実機v2対応・実質問/回答の端末再生も1回成功した。[実機検証](GEMINI_DEVICE_VALIDATION_2026-10-16.md)を参照。以下はPC単独試験時点の結果で、当時の未実施記述は履歴として読む。
+
 ## 結果
 
 | 検証 | 結果・範囲 |

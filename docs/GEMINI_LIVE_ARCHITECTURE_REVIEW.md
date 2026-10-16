@@ -10,6 +10,8 @@
 
 最新の実装追記（2026-10-16）: Starter対象外のため公開は保留し、ユーザー指定でローカルPC環境を実装した。保存済みGeminiキーをPCで読み、生成試験音声16kHz入力→Gemini Live→24kHz回答の取得まで成功。キーは環境変数に加えて既存の非公開 `data/secrets.json` からも読める。新PCサービスは `gemini-pc.ts` / protocol v2、Node標準HTTP + wsを使用する。従来server.tsのechoや下記の初期設計と区別する。[現在の結果と端末統合の残作業](GEMINI_PC_VALIDATION_2026-10-16.md)を優先し、以下の未実装記述は初期検討時点の履歴として読む。
 
+実機統合の追記（同日）: その後端末もv2へ対応し、実マイク→PC→Gemini→端末の24kHz回答再生が1回成功、ユーザーが日本語回答を確認した。現在は [実機Gemini検証](GEMINI_DEVICE_VALIDATION_2026-10-16.md) とStart-Gemini-Device.cmdを再開先にする。3秒・1質問1回答の半二重検証版であり、連続会話は未対応。
+
 ## 判断
 
 希望構成は採用候補にできる。入力を **16,000 Hz / signed 16-bit / little-endian / mono の raw PCM**、出力を **24,000 Hz / 同形式**に統一すれば、通信のためのアプリ独自のリサンプリングを挟まずに構成できる。M5ドライバ内部の変換やI2Sクロック設定は別途確認する。公式の Live API 概要も入力16kHz・出力24kHzを規定し、バックエンド中継方式を説明している。[Google Live API 概要](https://ai.google.dev/gemini-api/docs/live-api)

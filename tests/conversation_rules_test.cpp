@@ -1,5 +1,6 @@
 #include "ConversationRules.h"
 #include "ProbeResample.h"
+#include "LivePcm.h"
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -132,6 +133,25 @@ int main() {
     for (size_t i = 1; i < output.size(); ++i)
       if (output[i - 1] <= 0 && output[i] > 0) ++crossings;
     require(crossings >= 999 && crossings <= 1001);
+  });
+  test("live output accepts a partial final frame and exact total", [] {
+    livepcm::Output state; require(state.begin(7, 481, 2));
+    std::array<uint8_t, 972> packet{}; livepcm::write32(packet.data(), 7);
+    packet[8] = 0xe0; packet[9] = 1;
+    require(state.accept(packet.data(), packet.size())); require(!state.complete());
+    livepcm::write32(packet.data() + 4, 1); packet[8] = 1; packet[9] = 0;
+    require(state.accept(packet.data(), 14)); require(state.complete());
+    require(!state.accept(packet.data(), 14));
+  });
+  test("live output rejects stale reordered truncated and excessive audio", [] {
+    livepcm::Output state; require(!state.begin(0, 480, 1)); require(!state.begin(1, 240001, 501));
+    require(!state.begin(1, 480, 2)); require(state.begin(1, 480, 1));
+    std::array<uint8_t, 972> packet{}; livepcm::write32(packet.data(), 2); packet[8] = 0xe0; packet[9] = 1;
+    require(!state.accept(packet.data(), packet.size())); livepcm::write32(packet.data(), 1);
+    livepcm::write32(packet.data() + 4, 1); require(!state.accept(packet.data(), packet.size()));
+    livepcm::write32(packet.data() + 4, 0); require(!state.accept(packet.data(), packet.size() - 2));
+    packet[10] = 1; require(!state.accept(packet.data(), packet.size())); packet[10] = 0;
+    require(state.accept(packet.data(), packet.size())); require(state.complete());
   });
   std::cout << passed << " tests passed\n";
 }
