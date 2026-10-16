@@ -2,7 +2,7 @@ FROM node:24-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
-COPY tsconfig.json echo.ts protocol.ts server.ts ./
+COPY tsconfig.json echo.ts protocol.ts probe-resample.ts server.ts ./
 RUN npm run build && npm prune --omit=dev --ignore-scripts --no-audit --no-fund
 
 FROM node:24-bookworm-slim

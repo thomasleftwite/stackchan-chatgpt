@@ -1,8 +1,8 @@
 # ローカル通信・音声検証
 
-版: R01 / 日付: 2026-10-16（日本時間）
+版: R02 / 日付: 2026-10-16（日本時間）
 
-目的: Starter公開を保留し、PC内WebSocketの連続PCM通信とAtomS3R単体の録音・再生を段階的に検証する。現在は両者を別々に確認した段階。端末LAN通信・TLS・Gemini Live会話は未検証。
+目的: Starter公開を保留し、PC内WebSocketの連続PCM通信とAtomS3R単体の録音・再生を段階的に検証する。この記録は単体確認時点の履歴。その後の実機LAN試験・一括録音修正は [LAN検証記録](LAN_PCM_VALIDATION_2026-10-16.md) を現在地とする。TLS・Gemini Live会話は未検証。
 
 対象: COM4のM5AtomS3R（ESP32-S3-PICO-1、Flash/PSRAM各8MB）+ Atomic Voice Base（A149）。フレームワークはArduino-ESP32 2.0.17、PlatformIO espressif32 6.11.0、M5Unified 0.2.26、M5GFX 0.2.33。その他の固定依存はplatformio.iniとdocs/dependencies.mdを参照。
 
@@ -30,7 +30,7 @@
 2. 診断版 `.pio/firmware-snapshots/audio-probe-r01.bin` は541,472B、SHA256 `2A8B339F63490B0DD54F36DF22082FC03EC90DB0C12A42ACF770B5EB550607C1`。`tools/flash_application_only.py --image <このイメージ> --partition-table <今回の表> --sha256 <上記値>` で0x10000のアプリだけを書込み、esptoolのハッシュ検証成功。消去範囲0x10000〜0x94fff。設定・登録領域への書込みなし。
 3. USBのINFO応答で診断版起動とinput16000/output24000/mono/16bitを確認。短押し確認音は端末の処理完了とユーザーの聴取を確認した。
 4. 初回はユーザーが「確認音は聞こえるが声は再生されない/不明瞭」と回答、監視窓ではTONE PASSのみ。表示までの長押し手順で再試行後、**自分の声が聞こえる**とユーザー確認。録音/再生の基本動作を確認したが、その操作の数値統計は55秒の監視窓では取得できず、録音時間・RMS・クリップ率は未評価。音質/距離/雑音の定量評価、連続反復は未実施。
-5. 復帰用の通常版もビルド成功。`.pio/firmware-snapshots/normal-before-audio-r01.bin` は1,910,720B、SHA256 `6D11689010E6F42B14241BEBEF41A715A94A73A03DA2997F62970D39851BD9DC`。同じアプリ限定ツールと表で戻せる。**現在の端末は診断版のまま**で、通常会話・呼びかけ待機は行わない。
+5. 復帰用の通常版もビルド成功。`.pio/firmware-snapshots/normal-before-audio-r01.bin` は1,910,720B、SHA256 `6D11689010E6F42B14241BEBEF41A715A94A73A03DA2997F62970D39851BD9DC`。同じアプリ限定ツールと表で戻せる。単体試験後にLAN診断版へ更新しており、現在の状態は [LAN検証記録](LAN_PCM_VALIDATION_2026-10-16.md) を参照。通常会話・呼びかけ待機は行わない。
 
 ## ソフトウェア検証と次の段階
 

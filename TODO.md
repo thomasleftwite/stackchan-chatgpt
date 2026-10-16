@@ -28,7 +28,7 @@
 | 完了 | 検証済み開発版のGitHubへのpush・main統合 | 2026-10-16 | [PR #1](https://github.com/thomasleftwite/stackchan-chatgpt/pull/1)、merge 67a984c。ファームウェア再ビルド・ホストテスト14/14成功。実キーと生成物を除外して公開、main同期後もローカル設定のバイト一致・未追跡を確認 |
 | 完了 | GitHub同期時点の会話要約・再開用記録 | 2026-10-16 | docs/HANDOFF_2026-10-16.md R2。main/origin/main=d06ecd5を基準に成果・未検証・秘密設定・再開順を整理。再開後のクラウド稼働先指定を追記 |
 | 完了 | Node.js中継 + Gemini Liveの次期構成の一次検討 | 2026-10-16 | docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md R01。公式モデル/音声仕様/SDKを確認し、16 kHz入力/24 kHz出力、キーのサーバ管理、初期半二重、通信/終端/有界キュー/検証計画を記録。設計案であり未実装・実API未検証 |
-| 一部実装 | 次期構成のサーバ・端末実装と段階検証 | — | 稼働先はAI Studio公開のCloud Runを想定。認証付きecho・共通PCM形式・疎通クライアントを実装済み。Gemini会話状態管理・Live中継・端末は未実装。クラウドWSS疎通→音声→実API→統合の順で検証 |
+| 一部実装 | 次期構成のサーバ・端末実装と段階検証 | — | 認証付きecho・PCM形式・疎通クライアント・LAN診断端末を実装し実機のPCM往復/再生まで基本確認。クラウドは保留。連続送受信/会話状態管理・Gemini Live中継・会話用端末は未実装 |
 | 完了 | AI Studio / Cloud Run方式の資料による実現可能性確認 | 2026-10-16 | docs/AI_STUDIO_CLOUD_FEASIBILITY_2026-10-16.md R01。Node.js/Secrets、Cloud Run公開/WSS、接続期限・認証・利用枠を公式資料で照合。実デプロイの独自upgrade・実機・対象キーの会話は未検証 |
 | 完了 | 中継実装の初期準備とPCM形式モジュール | 2026-10-16 | server/README.md、protocol.ts、package.json/lock。依存固定、TypeScriptビルド、単体2/2成功。Node.js24.15.0。クラウド通信や会話状態管理は未実装 |
 | 保留 | AI Studio公開先での認証付きWSS疎通 | — | docs/STARTER_ECHO_DEPLOYMENT.md R02。公開設定でStarter対象外を確認後、ユーザーが公開保留・ローカル検証を指定。生成版にも形式/制限差分とプレビュー404が残る。課金/Secret/公開は未実施 |
@@ -36,6 +36,7 @@
 | 保留 | クラウド公開 | — | ユーザーが公開保留・ローカル検証へ切替を指定。課金/Secret/公開は変更しない |
 | 完了 | PC内の連続PCM通信 | 2026-10-16 | server/test/pcm-stream.test.ts。16kHzの100フレーム/32,000サンプルがbyte一致、サーバ全12/12成功。実機LANは未検証 |
 | 基本確認済み | 端末単体の16kHz録音・24kHz再生 | 2026-10-16 | docs/LOCAL_AUDIO_VALIDATION_2026-10-16.md R01。専用診断版をCOM4のアプリのみへ書込み、ハッシュ検証・起動・確認音・録音した自声の再生を確認。ホスト17/17成功。録音時間/音量統計・音質定量評価は未実施。現在端末は診断版 |
-| 条件確認中 | 実機とPCの認証付きWebSocket・PCM通信 | — | 同一LANの接続条件を利用者へ確認。PC内試験と端末単体試験は完了、両者のネットワーク統合は未実装 |
+| 基本確認済み | 実機とPCの認証付きWebSocket・PCM通信 | 2026-10-16 | docs/LAN_PCM_VALIDATION_2026-10-16.md R01。合成音/自声の16kHz上り48,000・24kHz下り72,000サンプル、150フレーム全一致とclose1000。録音3,054ms、clip0、ユーザーが自然な再生を確認。サーバ15/15成功。現在LAN診断版R04、PC一時サーバ停止済み |
+| 未実装 | 連続送受信・再生credit/drainとGemini Live接続 | — | LAN診断は録音後送信方式。連続DMA取得、低遅延送信、有界再生キュー、終端、再接続を先に実装してからAPIへ進む。TLS/クラウドは未検証 |
 
 詳細な証拠、絶対パス、未確認事項は [検証記録](docs/validation.md) を参照する。

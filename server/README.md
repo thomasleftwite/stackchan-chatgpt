@@ -2,11 +2,11 @@
 
 版: 0.2.0-dev / 更新日: 2026-10-16。
 
-現在の方針: AI Studio公開設定でStarter対象外を確認したため、ユーザー指定でクラウド公開を保留。まずローカルの通信・音声を検証する。PC内loopbackと端末単体の結果は [ローカル検証記録](../docs/LOCAL_AUDIO_VALIDATION_2026-10-16.md) を参照。LAN常駐サービスや課金設定への変更ではない。
+現在の方針: AI Studio公開設定でStarter対象外を確認したため、ユーザー指定でクラウド公開を保留。ローカル検証はPC内/端末単体に続いて [実機LANのPCM往復・再生](../docs/LAN_PCM_VALIDATION_2026-10-16.md) まで基本確認した。一時サーバは停止済み。常駐サービスや課金設定への変更ではない。
 
 目的: AtomS3Rの16 kHz PCM入力と24 kHz PCM出力をGemini Liveへ中継するクラウドサービスを作る。ユーザーの指定により、稼働先はAI Studio Buildから公開するCloud Runを想定する。このWindows PCのNode.jsは開発・試験用で、常駐サーバの前提にはしない。
 
-現在は共通PCMフレームに加え、認証付きWebSocket echo、HTTPヘルスチェック、接続数/時間/サイズの上限、疎通クライアントを実装済み。Gemini接続と端末クライアントは未実装。Geminiキーは使用・複製・送信していない。Cloud Run向けDockerfileは用意したが、Dockerが手元にないためコンテナビルド・実デプロイは未検証。
+現在は共通PCMフレーム、認証付きWebSocket echo、HTTPヘルスチェック、各種上限、疎通クライアントとLAN診断用端末を実装済み。Gemini接続と会話用端末クライアントは未実装。Geminiキーは使用・複製・送信していない。Cloud Run向けDockerfileは用意したが、Dockerが手元にないためコンテナビルド・実デプロイは未検証。
 
 ## 再現方法
 
@@ -17,7 +17,7 @@ npm ci --ignore-scripts
 npm test
 ```
 
-依存はpackage.jsonで固定し、package-lock.jsonを保持する。`npm test`はTypeScriptを型検査・ビルドし、Node組込みテストで既知PCM、フレーム検査、未認証拒否、バイナリ往復、接続上限、時間切れ、不正・過大データ拒否、疎通クライアントを確認する。連続PCM試験を追加し現在12/12成功。20ms間隔で100フレーム（16kHz mono、計32,000サンプル）をPC内で往復し全データ一致を確認した。音声品質やGoogle/実機LANへの接続を確認する試験ではない。
+依存はpackage.jsonで固定し、package-lock.jsonを保持する。`npm test`はTypeScriptを型検査・ビルドし、Node組込みテストで既知PCM、フレーム検査、未認証拒否、バイナリ往復、接続上限、時間切れ、不正・過大データ拒否、疎通クライアントを確認する。PC内連続PCM追加時点は12/12成功、その後pcm-loopbackを加えて現在15/15成功。20ms間隔の100フレーム（16kHz mono、計32,000サンプル）もPC内で全データ一致を確認した。Node試験と実機LAN/音質の確認は分けて扱う。
 
 ## 起動と外部疎通試験
 
@@ -35,6 +35,8 @@ echoは16 kHz入力をそのまま返す疎通用で、24 kHzへの変換やGemi
 1メッセージは12 byteのlittle-endianヘッダとraw PCM本文。generationId:u32、sequence:u32、sampleCount:u16、flags:u16（0）の順。本文はsigned 16-bit little-endian mono。上りは最大640 byte（16 kHzで20ms）、下りは最大960 byte（24 kHzで20ms）。順序・世代・creditの状態管理は次の実装範囲で、現モジュールは構造の検証のみ。
 
 ## 秘密設定と次の段階
+
+診断用の `local-lan.ts` はstdinで受けた一時トークンとRFC1918アドレスで空きポートにbindし、`pcm-loopback` モードを使う。`tools/run_lan_probe.py` からのみ起動する手順を [LAN検証](../docs/LAN_PCM_VALIDATION_2026-10-16.md) に記録。150フレーム限定の16→24kHz補間と世代/連番検査を追加し、サーバ全15/15成功。通常 `server.ts` のechoモードでは補間しない。診断版はGeminiを呼ばず、録音後に送信して再生する。連続会話用のcredit/drainは次の実装範囲。
 
 `.env.example`は空の見本。`.env`とその派生ファイル、node_modules、distはGit対象外。Cloud RunではGoogleキーをサーバのSecretとして扱い、端末やGitに埋め込まない。準備済み `../data/secrets.json` は保持し、この試験では読み込まない。
 
