@@ -16,11 +16,15 @@ def main():
     parser.add_argument("--port", required=True)
     parser.add_argument("--esptool", type=Path, required=True)
     parser.add_argument("--sha256", required=True)
+    parser.add_argument("--image", type=Path,
+                        help="Optional reviewed image under this project's .pio directory")
     parser.add_argument("--partition-table", type=Path,
                         help="Reviewed table already installed on this device; defaults to the pre-migration table")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    image = root / ".pio/build/atoms3r/firmware.bin"
+    image = (args.image or (root / ".pio/build/atoms3r/firmware.bin")).resolve()
+    if not image.is_relative_to((root / ".pio").resolve()):
+        raise SystemExit("Image must stay under this project's .pio directory")
     content = image.read_bytes()
     if hashlib.sha256(content).hexdigest().lower() != args.sha256.lower():
         raise SystemExit("Firmware changed; review and approve the new image first")

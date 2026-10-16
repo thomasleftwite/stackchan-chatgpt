@@ -1,5 +1,7 @@
 # 実装方針
 
+この資料はGitHub同期済みの現実装（OpenAI音声処理 + Gemini REST）の方針です。2026-10-16に提示された次期構成（Node.js中継 + Gemini Live）の検討は [Gemini Live構成検討](GEMINI_LIVE_ARCHITECTURE_REVIEW.md) を参照してください。次期構成は未実装です。
+
 ユーザーの実装指示に基づき、Stackchan-chatgpt配下に独立したArduino/PlatformIOプロジェクトを作る。既存firmwareは変更しない。これまでの調査資料もこのフォルダへ移した。
 
 - AtomS3R + Atomic Echo Base、C++、WiFiManager。

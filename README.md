@@ -1,18 +1,27 @@
 # Stackchan-chatgpt
 
-開発版 `0.1.0-dev`。2026-10-16までにファームウェア/SPIFFSビルドとホストテスト14件、実機の起動・画面表示、設定領域導入、キー未設定での起動、スマートフォンからの設定AP検出を確認。音声調整後の通常版で開始音・呼びかけ登録、短押しリセット後の登録保持・ボタンなし呼びかけ反応も確認済みです。家庭内Wi-Fiの接続保存、音声の録音再生品質、実API、呼びかけ精度の定量評価は未確認です。再開位置は [TODO](TODO.md) と [検証記録](docs/validation.md) に記載しています。
+再開時は [短い要約](docs/RESUME.md) を最初に参照してください。
+
+2026-10-16更新。**実機マイク→ローカルPC→Gemini Live→端末の24kHz回答再生に成功**し、ユーザーが日本語回答の聴取を確認しました。OpenAIキーは不要です。端末版R01 / PC中継 `0.2.0-dev`、PCテスト25/25・C++19/19成功。実機向け起動は [Start-Gemini-Device.cmd](Start-Gemini-Device.cmd)、手順・実測は [実機Gemini検証](docs/GEMINI_DEVICE_VALIDATION_2026-10-16.md)、PC単独試験は [PC検証記録](docs/GEMINI_PC_VALIDATION_2026-10-16.md) を参照してください。
+
+実機COM4は新しいGemini端末版R01/protocol v2です。3秒録音・1質問1回答で、呼びかけ待機や会話履歴は未対応です。実機試験後の一時PCサービスは停止済み。起動用ファイルを開き、端末を長押し→離す→開始音後に発話すると試せます。サービスは最長約10分、再試験は再実行してください。再開位置は [TODO](TODO.md) と [引継ぎ](docs/HANDOFF_2026-10-16.md) に記載しています。
 
 AtomS3R + Atomic Voice Base（旧称Atomic Echo Base、SKU A149）用の音声チャット端末です。
 C++ / Arduino-ESP32 / PlatformIOで開発し、ESP-IDFプロジェクトは使用しません。
 
 - Wi-Fi: WiFiManager
 - 待機: 端末内の録音比較（SimpleVox MFCC/DTW）またはボタン
-- 会話: OpenAI Realtime文字起こし → Gemini回答生成 → OpenAI Realtime読み上げ
+- 従来の端末単体版の会話: OpenAI Realtime文字起こし → Gemini回答生成 → OpenAI Realtime読み上げ
+- 新しいPC中継版: 16kHz PCM入力 → Gemini Live → 24kHz PCM回答（実機で基本確認済み）
 - 録音・再生は切替式。全二重・発話割り込みは対象外です。
 
 実機・実APIの検証状況は [検証記録](docs/validation.md) を参照してください。
 
-## セットアップ
+2026-10-16時点の [再開用引継ぎ](docs/HANDOFF_2026-10-16.md) と [Node.js中継 + Gemini Live構成の検討](docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md) を保存しています。以下のセットアップ・操作は従来の端末単体版 `0.1.0-dev` 向けです。PC中継版は [server/README](server/README.md) を使用してください。
+
+クラウド中継は **AI Studio Buildから公開するCloud Run** を想定しましたが、Starter対象外のため公開を保留しました。実機LANの自声再生、PCのGemini単独試験を経て、実機のGemini回答再生まで基本確認しています。[LAN検証記録](docs/LAN_PCM_VALIDATION_2026-10-16.md)、[単体音声検証](docs/LOCAL_AUDIO_VALIDATION_2026-10-16.md) は各段階の履歴です。連続ストリーミング・複数ターンの会話・WSS/TLS・長時間運転は未検証です。
+
+## 従来の端末単体版セットアップ
 
 1. VS Codeでこのフォルダを開き、PlatformIO拡張をインストールします。
 2. `data/secrets.example.json` を `data/secrets.json` にコピーし、OpenAIとGeminiのAPIキーを入力します。キーのファイルはGit管理対象外です。

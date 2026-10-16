@@ -6,3 +6,10 @@ data/wakeword*.bin*
 data/wakeword*.meta*
 __pycache__/
 *.pyc
+node_modules/
+server/dist/
+.env
+.env.*
+!.env.example
+data/bridge.local.json
+data/bridge.local.json.*

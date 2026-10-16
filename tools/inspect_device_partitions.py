@@ -14,9 +14,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", required=True)
     parser.add_argument("--esptool", type=Path, required=True)
+    parser.add_argument("--output", type=Path, help="New project-local .pio output path; existing files are preserved")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    output = root / ".pio" / "device-check" / "partitions-before.bin"
+    output = (args.output or (root / ".pio" / "device-check" / "partitions-before.bin")).resolve()
+    if not output.is_relative_to((root / ".pio").resolve()) or output.exists():
+        raise SystemExit("Choose a new output path under this project's .pio directory")
     output.parent.mkdir(parents=True, exist_ok=True)
     command = [sys.executable, str(args.esptool), "--chip", "esp32s3", "--port", args.port,
                "--baud", "115200", "--before", "default_reset", "--after", "no_reset",
