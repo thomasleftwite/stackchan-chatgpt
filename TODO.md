@@ -62,4 +62,4 @@
 |---|---|---|---|
 | 完了 | 会話成立段階の開発進捗整理 | 2026-10-16 | docs/DEVELOPMENT_PROGRESS_2026-10-16.md R01、RESUME R04、HANDOFF R12。PC26/26、C++27/27、録音UI6項目、端末ビルド成功。今回の端末/API追加操作なし |
 | 未解明・継続観察 | Start-Gemini-Device.cmdの一度の終了 | — | ユーザー報告で再起動後の会話は正常。終了コード/経過時間未取得、約10分の期限終了との区別も未確認。再発時に秘密情報を除いた段階/コードを確認 |
-| 進行中 | 可変長録音・録音開始修正・進捗資料のpush/main統合 | — | codex/variable-utterance。公開履歴の秘密情報検査とPRマージ、設定保持・同期一致の確認後に完了へ更新 |
+| 完了 | 可変長録音・録音開始修正・進捗資料のpush/main統合 | 2026-10-16 | [PR #3](https://github.com/thomasleftwite/stackchan-chatgpt/pull/3) MERGED、merge a60d165。未公開3コミット/125 blobと公開ファイル114件で秘密値一致0。ローカルmain同期、設定2件のバイト一致/除外/未追跡、検証済みツリー一致を確認 |

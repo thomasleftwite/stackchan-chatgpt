@@ -42,4 +42,4 @@
 
 2026-10-16 21:09（日本時間）、[PR #2](https://github.com/thomasleftwite/stackchan-chatgpt/pull/2)はMERGED。統合コミットは `9e2b0c0ef8d68f75570029c18e3a22792b0ed8ee`。作業基準e6ae4a1と要約6ba8a8bを含む全10コミットをpush/main統合した。ローカルもmainへ切り替え、origin/mainとの一致と秘密設定のバイト一致・Git除外・未追跡を確認。この完了結果の追記はmainへの文書更新として保存する。
 
-上記は前工程の同期結果。今回の可変長録音と録音開始の修正は `codex/variable-utterance` で実装。main/origin/mainの同期基準は `d63ab5e`。今回のpush・main統合の完了結果は [開発進捗](DEVELOPMENT_PROGRESS_2026-10-16.md)へ記録する。
+上記は前工程の同期結果。今回の可変長録音・録音開始修正と進捗資料は [PR #3](https://github.com/thomasleftwite/stackchan-chatgpt/pull/3)で2026-10-16 22:50 JSTにmain統合済み（merge `a60d1659616a990c0cdcc1474e1ba9648f9a5ddc`）。ローカルもmainへ切替済みで、秘密設定のバイト一致・除外・未追跡と検証済みツリーの一致を確認。[開発進捗](DEVELOPMENT_PROGRESS_2026-10-16.md)に検証・残課題・同期結果を記録した。
