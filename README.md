@@ -1,5 +1,7 @@
 # Stackchan-chatgpt
 
+再開時は [短い要約](docs/RESUME.md) を最初に参照してください。
+
 2026-10-16更新。**実機マイク→ローカルPC→Gemini Live→端末の24kHz回答再生に成功**し、ユーザーが日本語回答の聴取を確認しました。OpenAIキーは不要です。端末版R01 / PC中継 `0.2.0-dev`、PCテスト25/25・C++19/19成功。実機向け起動は [Start-Gemini-Device.cmd](Start-Gemini-Device.cmd)、手順・実測は [実機Gemini検証](docs/GEMINI_DEVICE_VALIDATION_2026-10-16.md)、PC単独試験は [PC検証記録](docs/GEMINI_PC_VALIDATION_2026-10-16.md) を参照してください。
 
 実機COM4は新しいGemini端末版R01/protocol v2です。3秒録音・1質問1回答で、呼びかけ待機や会話履歴は未対応です。実機試験後の一時PCサービスは停止済み。起動用ファイルを開き、端末を長押し→離す→開始音後に発話すると試せます。サービスは最長約10分、再試験は再実行してください。再開位置は [TODO](TODO.md) と [引継ぎ](docs/HANDOFF_2026-10-16.md) に記載しています。
