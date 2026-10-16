@@ -221,3 +221,14 @@ APIキーは導入せず、会話APIは試験しない。初期化後はWi-Fi設
 指摘数はStandards 0件・Spec 0件、各軸とも最悪問題なし。この差分の静的レビューであり、旧ファームウェア全体の独立レビューや新構成の動作実証を完了したという意味ではない。
 
 実装準備を `cd385bd` として作業ブランチへローカルコミット。GitHubへの追加push/mergeは行っていない。コミット内62ファイルに実キーとの一致なし、実設定は保存時からバイト一致、秘密設定・生成物の除外を再確認した。
+
+## Starter向け認証付きechoの実装（2026-10-16）
+
+- ユーザーの継続指示とStarter希望に基づき、Geminiを呼ばないechoを実装。`server.ts`はCloud RunのPORT/0.0.0.0へ対応し、SIGTERMで閉じる。`echo.ts`はupgrade前のBearer認証、1接続/インスタンス、30秒/無通信10秒、フレーム/滞留量上限を持つ。実トークンはまだ設定していない。
+- まず未実装のechoを参照するテストで失敗を確認し、実装後に型検査と接続試験を実行。最後の全試験は11/11成功（PCM形式2件、echo/疎通9件）。内容はヘルス、未認証・誤認証拒否、既知PCMのbyte一致と正常close、不正/過大入力、接続容量の復帰、時間切れ、クエリURL拒否、弱いトークン拒否、smokeクライアントの正常/異常。ループバック上の試験であり、外部WSS/TLSの検証ではない。
+- `smoke.ts` は公開先の既知合成PCM往復を試す準備。TLS検証は無効にせず、平文WSを許すのはloopbackだけ。URLクエリやログへトークンを載せない。echoの戻りは16kHz入力そのままであり、24kHz音声生成・変換ではない。
+- Cloud Run用Dockerfileとファイル許可リストの.dockerignore、[公開準備手順](STARTER_ECHO_DEPLOYMENT.md)を作成。手元にDockerがないためコンテナビルド・公開は未検証。DockerのNode24タグは更新され得るため、実公開時に採用イメージ/ダイジェストを固定・記録する。
+- 配布用ソース束 `.pio/publish/stackchan-echo-probe-r01.zip` は13ファイル、26,377 bytes、SHA256 `071BCDC7015CCB0BDA2E3C471F4CCE98C3BF2387E9FFEB6129A63BFA066A7F2E`。ZIP整合と実キー一致なし、.env/data/node_modules/distなしを確認した。AI StudioへのZIP直接インポート可否は未確認なので、公開済み成果物とは扱わない。
+- AI Studio Buildで要件を送信してアプリ作成を試みたが、処理が進まずサービス側の `The caller does not have permission` を確認した。再読込み後にMy appsを開いても新規画面へ戻り、アプリ/公開URLの作成成功は確認できていない。未加工のブラウザログやアカウント情報はこの記録へ保存していない。
+- 現在の停止点はアプリ作成権限。Starter対象外、Geminiキー不正、WebSocket非対応と断定する証拠ではない。ユーザーへ手動作成可否を確認中で、課金有効化や別アカウントへの切替、クラウドSecret登録、公開は行っていない。
+- 既存の端末・ESP32ソース・SPIFFS/NVSとローカルGemini設定は変更していない。今回のGemini API試験、録音、機器書込みは未実施。

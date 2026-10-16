@@ -28,9 +28,10 @@
 | 完了 | 検証済み開発版のGitHubへのpush・main統合 | 2026-10-16 | [PR #1](https://github.com/thomasleftwite/stackchan-chatgpt/pull/1)、merge 67a984c。ファームウェア再ビルド・ホストテスト14/14成功。実キーと生成物を除外して公開、main同期後もローカル設定のバイト一致・未追跡を確認 |
 | 完了 | GitHub同期時点の会話要約・再開用記録 | 2026-10-16 | docs/HANDOFF_2026-10-16.md R2。main/origin/main=d06ecd5を基準に成果・未検証・秘密設定・再開順を整理。再開後のクラウド稼働先指定を追記 |
 | 完了 | Node.js中継 + Gemini Liveの次期構成の一次検討 | 2026-10-16 | docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md R01。公式モデル/音声仕様/SDKを確認し、16 kHz入力/24 kHz出力、キーのサーバ管理、初期半二重、通信/終端/有界キュー/検証計画を記録。設計案であり未実装・実API未検証 |
-| 一部実装 | 次期構成のサーバ・端末実装と段階検証 | — | 稼働先はAI Studio公開のCloud Runを想定。SDK固定とPCM形式の単体処理のみ実装済み。会話状態管理・中継本体・端末は未実装。クラウドWSS疎通→音声→実API→統合の順で検証 |
+| 一部実装 | 次期構成のサーバ・端末実装と段階検証 | — | 稼働先はAI Studio公開のCloud Runを想定。認証付きecho・共通PCM形式・疎通クライアントを実装済み。Gemini会話状態管理・Live中継・端末は未実装。クラウドWSS疎通→音声→実API→統合の順で検証 |
 | 完了 | AI Studio / Cloud Run方式の資料による実現可能性確認 | 2026-10-16 | docs/AI_STUDIO_CLOUD_FEASIBILITY_2026-10-16.md R01。Node.js/Secrets、Cloud Run公開/WSS、接続期限・認証・利用枠を公式資料で照合。実デプロイの独自upgrade・実機・対象キーの会話は未検証 |
 | 完了 | 中継実装の初期準備とPCM形式モジュール | 2026-10-16 | server/README.md、protocol.ts、package.json/lock。依存固定、TypeScriptビルド、単体2/2成功。Node.js24.15.0。クラウド通信や会話状態管理は未実装 |
-| 未実施 | AI Studio公開先での認証付きWSS疎通 | — | まずGeminiを呼ばないechoで /live upgrade・binary往復・誤認証拒否を確認し、次に端末TLSとGemini Liveへ進む。課金/Secret/公開先設定は未実施 |
+| 調査中 | AI Studio公開先での認証付きWSS疎通 | — | docs/STARTER_ECHO_DEPLOYMENT.md。ユーザーはStarter希望。アプリ作成・一覧取得で権限エラーがあり、公開画面に未到達。手動作成可否を確認中。Starter資格は未判定、課金/Secret/公開は未実施 |
+| 完了 | Gemini未使用の認証付きechoと公開準備 | 2026-10-16 | server/server.ts、echo.ts、smoke.ts。型検査・ローカル11/11成功。Dockerfileと秘密情報を除外したソースZIPを用意。コンテナビルドと外部WSS/実機確認は未実施 |
 
 詳細な証拠、絶対パス、未確認事項は [検証記録](docs/validation.md) を参照する。
