@@ -2,6 +2,8 @@
 
 版: 0.2.0-dev / 更新日: 2026-10-16。
 
+現在の方針: AI Studio公開設定でStarter対象外を確認したため、ユーザー指定でクラウド公開を保留。まずローカルの通信・音声を検証する。PC内loopbackと端末単体の結果は [ローカル検証記録](../docs/LOCAL_AUDIO_VALIDATION_2026-10-16.md) を参照。LAN常駐サービスや課金設定への変更ではない。
+
 目的: AtomS3Rの16 kHz PCM入力と24 kHz PCM出力をGemini Liveへ中継するクラウドサービスを作る。ユーザーの指定により、稼働先はAI Studio Buildから公開するCloud Runを想定する。このWindows PCのNode.jsは開発・試験用で、常駐サーバの前提にはしない。
 
 現在は共通PCMフレームに加え、認証付きWebSocket echo、HTTPヘルスチェック、接続数/時間/サイズの上限、疎通クライアントを実装済み。Gemini接続と端末クライアントは未実装。Geminiキーは使用・複製・送信していない。Cloud Run向けDockerfileは用意したが、Dockerが手元にないためコンテナビルド・実デプロイは未検証。
@@ -15,7 +17,7 @@ npm ci --ignore-scripts
 npm test
 ```
 
-依存はpackage.jsonで固定し、package-lock.jsonを保持する。`npm test`はTypeScriptを型検査・ビルドし、Node組込みテストで既知PCM、フレーム検査、未認証拒否、バイナリ往復、接続上限、時間切れ、不正・過大データ拒否、疎通クライアントを確認する。現在11/11成功。音声品質やGoogleへの接続を確認する試験ではない。
+依存はpackage.jsonで固定し、package-lock.jsonを保持する。`npm test`はTypeScriptを型検査・ビルドし、Node組込みテストで既知PCM、フレーム検査、未認証拒否、バイナリ往復、接続上限、時間切れ、不正・過大データ拒否、疎通クライアントを確認する。連続PCM試験を追加し現在12/12成功。20ms間隔で100フレーム（16kHz mono、計32,000サンプル）をPC内で往復し全データ一致を確認した。音声品質やGoogle/実機LANへの接続を確認する試験ではない。
 
 ## 起動と外部疎通試験
 

@@ -31,7 +31,11 @@
 | 一部実装 | 次期構成のサーバ・端末実装と段階検証 | — | 稼働先はAI Studio公開のCloud Runを想定。認証付きecho・共通PCM形式・疎通クライアントを実装済み。Gemini会話状態管理・Live中継・端末は未実装。クラウドWSS疎通→音声→実API→統合の順で検証 |
 | 完了 | AI Studio / Cloud Run方式の資料による実現可能性確認 | 2026-10-16 | docs/AI_STUDIO_CLOUD_FEASIBILITY_2026-10-16.md R01。Node.js/Secrets、Cloud Run公開/WSS、接続期限・認証・利用枠を公式資料で照合。実デプロイの独自upgrade・実機・対象キーの会話は未検証 |
 | 完了 | 中継実装の初期準備とPCM形式モジュール | 2026-10-16 | server/README.md、protocol.ts、package.json/lock。依存固定、TypeScriptビルド、単体2/2成功。Node.js24.15.0。クラウド通信や会話状態管理は未実装 |
-| 方針確認待ち | AI Studio公開先での認証付きWSS疎通 | — | docs/STARTER_ECHO_DEPLOYMENT.md R02。APIプロジェクト/Buildアプリ作成済み。公開設定でStarter対象外を確認。課金なし希望のため公開を停止。生成版にも形式/制限差分とプレビュー404が残る。課金/Secret/公開は未実施 |
+| 保留 | AI Studio公開先での認証付きWSS疎通 | — | docs/STARTER_ECHO_DEPLOYMENT.md R02。公開設定でStarter対象外を確認後、ユーザーが公開保留・ローカル検証を指定。生成版にも形式/制限差分とプレビュー404が残る。課金/Secret/公開は未実施 |
 | 完了 | Gemini未使用の認証付きechoと公開準備 | 2026-10-16 | server/server.ts、echo.ts、smoke.ts。型検査・ローカル11/11成功。Dockerfileと秘密情報を除外したソースZIPを用意。コンテナビルドと外部WSS/実機確認は未実施 |
+| 保留 | クラウド公開 | — | ユーザーが公開保留・ローカル検証へ切替を指定。課金/Secret/公開は変更しない |
+| 完了 | PC内の連続PCM通信 | 2026-10-16 | server/test/pcm-stream.test.ts。16kHzの100フレーム/32,000サンプルがbyte一致、サーバ全12/12成功。実機LANは未検証 |
+| 基本確認済み | 端末単体の16kHz録音・24kHz再生 | 2026-10-16 | docs/LOCAL_AUDIO_VALIDATION_2026-10-16.md R01。専用診断版をCOM4のアプリのみへ書込み、ハッシュ検証・起動・確認音・録音した自声の再生を確認。ホスト17/17成功。録音時間/音量統計・音質定量評価は未実施。現在端末は診断版 |
+| 条件確認中 | 実機とPCの認証付きWebSocket・PCM通信 | — | 同一LANの接続条件を利用者へ確認。PC内試験と端末単体試験は完了、両者のネットワーク統合は未実装 |
 
 詳細な証拠、絶対パス、未確認事項は [検証記録](docs/validation.md) を参照する。

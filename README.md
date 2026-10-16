@@ -14,7 +14,7 @@ C++ / Arduino-ESP32 / PlatformIOで開発し、ESP-IDFプロジェクトは使�
 
 2026-10-16時点の [再開用引継ぎ](docs/HANDOFF_2026-10-16.md) と、次期方針である [Node.js中継 + Gemini Live構成の検討](docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md) を保存しています。以下のセットアップは現在の実装に対応し、次期構成はまだ実装していません。
 
-中継の稼働先はユーザー指定により **AI Studio Buildから公開するCloud Run** を想定します。[クラウド方式の実現可能性](docs/AI_STUDIO_CLOUD_FEASIBILITY_2026-10-16.md) と [準備中のサーバコード](server/README.md) を参照してください。PC上のNode.jsは開発・試験用です。現段階ではPCM形式の処理と試験のみで、クラウド公開・Gemini接続・端末対応は未実装です。
+クラウド中継は **AI Studio Buildから公開するCloud Run** を想定しますが、現在のアカウントがStarter対象外のため公開を保留しました。ユーザー指定により、当面はPC内の通信と端末の音声を別々に検証します。[ローカル検証](docs/LOCAL_AUDIO_VALIDATION_2026-10-16.md)、[クラウド方式の検討](docs/AI_STUDIO_CLOUD_FEASIBILITY_2026-10-16.md)、[サーバコード](server/README.md) を参照してください。認証付きechoは実装済みで、Gemini Live接続・端末とのネットワーク統合は未実装です。現在COM4は通常会話版に代えて音声診断版を一時稼働させています。
 
 ## セットアップ
 

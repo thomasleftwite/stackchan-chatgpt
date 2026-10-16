@@ -1,5 +1,7 @@
 #include "ConversationRules.h"
+#include "ProbeResample.h"
 #include <array>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -104,6 +106,32 @@ int main() {
   test("truncated or extended template rejected", [] {
     require(!validTemplateHeader(1, 2, 12, 56));
     require(!validTemplateHeader(1, 2, 12, 58));
+  });
+  test("diagnostic resampler preserves DC and output boundaries", [] {
+    std::array<int16_t, 320> input{}; input.fill(1234);
+    std::array<int16_t, 482> output{}; output.front() = 999; output.back() = -999;
+    probeResample16to24(input.data(), input.size(), output.data() + 1);
+    require(output.front() == 999 && output.back() == -999);
+    for (size_t i = 1; i <= 480; ++i) require(output[i] == 1234);
+  });
+  test("diagnostic resampler handles full scale without overflow", [] {
+    const int16_t input[] = {INT16_MIN, INT16_MIN, INT16_MAX, INT16_MAX};
+    int16_t output[6]{};
+    probeResample16to24(input, 4, output);
+    require(output[0] == INT16_MIN && output[1] == INT16_MIN);
+    require(output[3] == INT16_MAX && output[5] == INT16_MAX);
+    require(output[2] < 0);
+  });
+  test("diagnostic resampler preserves one-second 1kHz tone duration and pitch", [] {
+    std::array<int16_t, 16000> input{};
+    std::array<int16_t, 24000> output{};
+    for (size_t i = 0; i < input.size(); ++i)
+      input[i] = static_cast<int16_t>(2000 * std::sin(2 * 3.141592653589793 * 1000 * i / 16000));
+    probeResample16to24(input.data(), input.size(), output.data());
+    unsigned crossings = 0;
+    for (size_t i = 1; i < output.size(); ++i)
+      if (output[i - 1] <= 0 && output[i] > 0) ++crossings;
+    require(crossings >= 999 && crossings <= 1001);
   });
   std::cout << passed << " tests passed\n";
 }
