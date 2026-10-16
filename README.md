@@ -12,6 +12,10 @@ C++ / Arduino-ESP32 / PlatformIOで開発し、ESP-IDFプロジェクトは使�
 
 実機・実APIの検証状況は [検証記録](docs/validation.md) を参照してください。
 
+2026-10-16時点の [再開用引継ぎ](docs/HANDOFF_2026-10-16.md) と、次期方針である [Node.js中継 + Gemini Live構成の検討](docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md) を保存しています。以下のセットアップは現在の実装に対応し、次期構成はまだ実装していません。
+
+中継の稼働先はユーザー指定により **AI Studio Buildから公開するCloud Run** を想定します。[クラウド方式の実現可能性](docs/AI_STUDIO_CLOUD_FEASIBILITY_2026-10-16.md) と [準備中のサーバコード](server/README.md) を参照してください。PC上のNode.jsは開発・試験用です。現段階ではPCM形式の処理と試験のみで、クラウド公開・Gemini接続・端末対応は未実装です。
+
 ## セットアップ
 
 1. VS Codeでこのフォルダを開き、PlatformIO拡張をインストールします。
