@@ -13,12 +13,18 @@ class EnrollmentStatusTests(unittest.TestCase):
         self.assertIsNotNone(STATUS.fullmatch('GEM ENROLL CAL NONE'))
         self.assertIsNotNone(STATUS.fullmatch('GEM ENROLL result=NONE'))
         self.assertIsNotNone(STATUS.fullmatch('GEM BUILD enrollment=3'))
+        self.assertIsNotNone(STATUS.fullmatch('GEM BUILD enrollment=4'))
+        self.assertIsNotNone(STATUS.fullmatch('GEM BUILD enrollment=5'))
+        self.assertIsNotNone(STATUS.fullmatch('GEM ENROLL STEP verify'))
+        self.assertIsNotNone(STATUS.fullmatch('GEM ENROLL AUDIO samples=9600 voiced=3200 ms=600'))
 
     def test_extra_text_and_unbounded_values_are_rejected(self):
         for value in ('GEM ENROLL CAL rms=quiet threshold=4800 ms=1100 gap=700',
                       'GEM ENROLL CAL rms=1600 threshold=4800 ms=1100 gap=700 extra=data',
                       'GEM ENROLL CAL rms=160000 threshold=4800 ms=1100 gap=700',
-                      'GEM BUILD enrollment=3 extra=data'):
+                      'GEM BUILD enrollment=3 extra=data',
+                      'GEM ENROLL STEP arbitrary-data',
+                      'GEM ENROLL AUDIO samples=100000 voiced=3200 ms=600'):
             with self.subTest(value=value):
                 self.assertIsNone(STATUS.fullmatch(value))
 

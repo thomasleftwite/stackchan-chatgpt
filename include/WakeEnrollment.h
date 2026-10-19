@@ -35,7 +35,8 @@ class WakeEnrollmentCapture {
     result_=Result::Recording;
     if(quiet_>=6400) {
       count_=used_>4800 ? used_-4800 : used_;
-      result_=voiced_<6400 ? Result::Short : clipped_>count_/1000 ? Result::Clipped : Result::Ready;
+      // Match the 200ms voice gate while retaining a 400ms minimum feature window.
+      result_=(voiced_<3200 || count_<6400) ? Result::Short : clipped_>count_/1000 ? Result::Clipped : Result::Ready;
     } else if(used_>=capacity) result_=Result::Long;
     return result_;
   }
@@ -44,6 +45,8 @@ class WakeEnrollmentCapture {
   size_t samples() const { return result_==Result::Ready ? count_ : 0; }
   uint32_t noiseRms() const { return ambient_.noise(); }
   uint32_t voiceThreshold() const { return ambient_.threshold(); }
+  size_t recordedSamples() const { return used_; }
+  size_t voicedSamples() const { return voiced_; }
  private:
   int16_t* data_; size_t size_,used_=0,count_=0,voiced_=0,quiet_=0,waiting_=0,clipped_=0;
   AmbientGate ambient_; bool active_=false;

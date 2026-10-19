@@ -11,13 +11,23 @@ void feed(WakeEnrollmentCapture& w,int amplitude,int frames,bool dc=false) {
 }
 int main() {
   using R=WakeEnrollmentCapture::Result;
+  { WakeEnrollmentCapture w(buffer.data(),buffer.size());feed(w,0,50);feed(w,0,5);
+    feed(w,2400,8);feed(w,0,13);feed(w,2400,9);feed(w,0,20);
+    check(w.result()==R::Ready && w.samples()==12800 && w.recordedSamples()==17600 && w.voicedSamples()==5440,
+      "observed 340ms voiced call with internal pauses is accepted with its full 800ms window"); }
+  { WakeEnrollmentCapture w(buffer.data(),buffer.size());feed(w,0,50);feed(w,0,5);feed(w,2400,10);feed(w,0,20);
+    check(w.result()==R::Ready && w.samples()==6400,"200ms voiced boundary still requires a 400ms feature window"); }
+  { WakeEnrollmentCapture w(buffer.data(),buffer.size());feed(w,0,50);feed(w,0,5);
+    feed(w,2400,4);feed(w,0,10);feed(w,2400,5);feed(w,0,20);
+    check(w.result()==R::Short && !w.samples(),"less than 200ms voice is rejected even when total window exceeds 400ms"); }
   { WakeEnrollmentCapture w(buffer.data(),buffer.size());feed(w,0,50);feed(w,0,250);
     check(w.result()==R::Empty && !w.samples(),"no speech exits locally without a candidate"); }
   { WakeEnrollmentCapture w(buffer.data(),buffer.size());feed(w,100,50);feed(w,100,10);feed(w,2400,30);feed(w,100,20);
     check(w.result()==R::Ready && w.samples()==12800,"clean call keeps 100ms preroll and trims trailing silence");
     feed(w,32000,100);check(w.samples()==12800,"finished capture cannot absorb following audio"); }
   { WakeEnrollmentCapture w(buffer.data(),buffer.size());feed(w,0,50);feed(w,2400,10);feed(w,0,20);
-    check(w.result()==R::Short && !w.samples(),"brief noise or too-short call cannot be registered"); }
+    check(w.result()==R::Short && !w.samples() && w.recordedSamples()==9600 && w.voicedSamples()==3200,
+      "brief noise or too-short call cannot be registered and diagnostic counts retain its length"); }
   { WakeEnrollmentCapture w(buffer.data(),buffer.size());feed(w,1600,50);
     check(w.result()==R::Noisy,"loud calibration prevents enrollment");
     check(w.noiseRms()==1600 && w.voiceThreshold()==4800,"diagnostic noise and threshold reflect the rejected calibration"); }

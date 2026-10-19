@@ -24,6 +24,7 @@ inline bool fakeHeldForever = false;
 inline uint32_t fakeDelayBudget = std::numeric_limits<uint32_t>::max();
 inline unsigned fakeBeeps = 0, fakeRecordRequests = 0;
 inline unsigned fakeMicBegins = 0, fakeFrames = 0;
+inline unsigned fakeCallbackQueues = 0, fakeCaptureGaps = 0;
 inline std::function<bool(int16_t*,size_t,uint32_t)> fakeRecordAction;
 inline bool fakeMicActive = false, fakeCanvasFailure = false;
 inline std::function<bool(uint32_t)> fakeButtonSchedule;
@@ -67,14 +68,34 @@ struct FakeDisplay {
   std::string svg;
 };
 struct FakeMic {
+  struct Request { int16_t* data; size_t count; uint32_t rate, due; };
+  std::vector<Request> pending;
+  void* releaseArgs = nullptr;
+  void (*onRelease)(void*,void*,size_t) = nullptr;
   struct Config { uint32_t sample_rate = 16000; unsigned magnification = 4; } settings;
   Config config() { return settings; }
   void config(Config value) { settings = value; }
   bool begin() { ++fakeMicBegins; fakeMicActive = true; fakeMicBeganAt = fakeTime; return true; }
-  void end() { fakeMicActive = false; }
-  void setBufferReleaseCallback(void*, void (*)(void*, void*, size_t)) {}
-  bool record(int16_t* data, size_t n, uint32_t rate, bool = false) { ++fakeRecordRequests; return fakeRecordAction ? fakeRecordAction(data,n,rate) : false; }
-  unsigned isRecording() { return 0; }
+  void end() { fakeMicActive = false; pending.clear(); }
+  void setBufferReleaseCallback(void* args, void (*fn)(void*, void*, size_t)) { releaseArgs=args; onRelease=fn; }
+  bool record(int16_t* data, size_t n, uint32_t rate, bool = false) {
+    ++fakeRecordRequests;
+    if(!fakeRecordAction) return false;
+    if(onRelease) {
+      if(pending.size()>=2) return false;
+      pending.push_back({data,n,rate,fakeTime+static_cast<uint32_t>(uint64_t(n)*1000/rate)});
+      ++fakeCallbackQueues; return true;
+    }
+    return fakeRecordAction(data,n,rate);
+  }
+  void tick() {
+    if(pending.empty() || fakeTime<pending.front().due) return;
+    const auto request=pending.front();pending.erase(pending.begin());
+    if(!fakeRecordAction(request.data,request.count,request.rate)) return;
+    if(onRelease) onRelease(releaseArgs,request.data,request.count);
+    if(fakeMicActive && pending.empty()) ++fakeCaptureGaps;
+  }
+  unsigned isRecording() { return static_cast<unsigned>(pending.size()); }
   bool isRunning() const { return fakeMicActive; }
 };
 struct FakeSpeaker {
@@ -95,7 +116,7 @@ struct FakeM5 {
   FakeSpeaker Speaker;
   Config config() { return {}; }
   void begin(Config) {}
-  void update() { BtnA.update(); }
+  void update() { BtnA.update(); Mic.tick(); }
 };
 inline FakeM5 M5;
 // Record the actual renderer's drawing commands as SVG for offline inspection.

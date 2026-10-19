@@ -17,6 +17,7 @@ void reset() {
   wakeInput.stop(audio);std::free(input);std::free(output);input=output=nullptr;
   fakeTime=fakeGestureStart=1000;fakeDelayBudget=1000000;fakeHeldForever=false;
   fakeMicBegins=fakeRecordRequests=fakeBeeps=0;fakeMicActive=false;
+  fakeCallbackQueues=fakeCaptureGaps=0;M5.Mic.end();M5.Mic.setBufferReleaseCallback(nullptr,nullptr);
   fakePlaybackMs=fakePlaybackUntil=0;fakeRecordAction={};fakeWsLoop={};
   fakeCueDurationMs=fakeCueEndedAt=fakeMicBeganAt=0;
   fakeButtonSchedule=[](uint32_t){return false;};M5.BtnA={};M5.Display={};face.state={};
@@ -48,6 +49,15 @@ void cleanAudio() {
   };
 }
 int main() {
+  reset();cleanAudio();face.state.wake(fakeTime);size_t continuousCount=0;
+  const auto continuousResult=enrollmentCapture(Mode::Enrolling,continuousCount);
+  bool continuousData=true;
+  for(size_t i=0;i<11200;++i) {
+    const int expected=i<9600 ? (i%2 ? 2400 : -2400) : 0;
+    if(input[i]!=expected)continuousData=false;
+  }
+  check(!strcmp(continuousResult,"READY") && continuousCount==11200 && continuousData && fakeCallbackQueues>50 && !fakeCaptureGaps,
+    "enrollment queues successor buffers at completion and preserves every speech sample");
   reset();interactions(false);Serial.messages.clear();
   fakeRecordAction=[](int16_t* data,size_t n,uint32_t){
     for(size_t i=0;i<n;++i)data[i]=static_cast<int16_t>(i%2 ? 1600 : -1600);return true;
@@ -59,7 +69,11 @@ int main() {
   const bool replayedResult=std::any_of(Serial.messages.begin(),Serial.messages.end(),[](const std::string& line){
     return line.find("GEM ENROLL result=NOISY")==0;
   });
-  check(replayedCal && replayedResult,"state query replays the last calibration and failure after transient logs are missed");
+  const bool replayedStep=std::find(Serial.messages.begin(),Serial.messages.end(),"GEM ENROLL STEP record")!=Serial.messages.end();
+  const bool replayedAudio=std::any_of(Serial.messages.begin(),Serial.messages.end(),[](const std::string& line){
+    return line.find("GEM ENROLL AUDIO samples=0 voiced=0 ")==0;
+  });
+  check(replayedCal && replayedResult && replayedStep && replayedAudio,"state query replays calibration stage and sample counts after transient logs are missed");
   reset();cleanAudio();fakeCueDurationMs=500;
   face.state.wake(fakeTime);size_t settlingCount=0;
   const auto settlingResult=enrollmentCapture(Mode::Enrolling,settlingCount);
@@ -70,6 +84,11 @@ int main() {
   size_t cancelledCount=0;
   check(!strcmp(enrollmentCapture(Mode::Enrolling,cancelledCount),"CANCEL") && !fakeMicBegins && !cancelledCount,
     "cancel during the speaker settling gap never starts microphone recording");
+  reset();cleanAudio();face.state.wake(fakeTime);
+  fakeButtonSchedule=[pressed=fakeTime+900](uint32_t now){return now>=pressed;};
+  check(!strcmp(enrollmentCapture(Mode::Enrolling,cancelledCount),"CANCEL") && !fakeMicActive &&
+    M5.Mic.pending.empty() && !M5.Mic.onRelease && !capturing.load(),
+    "cancel during continuous capture drains requests and detaches callback before returning");
   reset();cleanAudio();interactions(true);const auto before=generation;
   for(unsigned i=0;i<2700;++i) { loop();if(fakeEnrollCommits)break; }
   check(fakeEnrollCommits==1 && !enrollmentActive && face.state.asleep && !fakeMicActive && generation==before && fakeMicBegins==2,
