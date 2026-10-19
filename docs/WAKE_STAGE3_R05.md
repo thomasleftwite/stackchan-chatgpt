@@ -23,3 +23,9 @@ R04の最初の登録録音は、保持17600・有声5440・末尾を切った�
 仕様/品質の独立した2軸の読取レビューでは、修正必須の欠陥なし。200msと400msの条件、既存候補APIとの整合を確認した。実機の受理改善や誤検出影響の検証とは区別する。
 
 次の確認はSleepingで約7秒長押し→離す→Settingsで短押し→Learning callを確認して従来の呼びかけを1回発話。STEP verifyが記録された場合だけ再発話照合へ進み、STEP saveになった場合だけ保存操作を案内する。実登録保存・再起動後の保持・通常の呼びかけ検出精度は未確認。
+
+自動リセット後にBUILD enrollment=5、Sleep/mic=0を確認。継続監視は.pio/device-check/face-stage3-r05-live-20261019-r01.json（単一セッション82829、最大10分）。最初の実発話はCAL rms=138 threshold=750 ms=1040 gap=728、AUDIO samples=18560 voiced=5440 ms=3876からSTEP verifyへ進んだ。利用者もTry your call表示を確認。有声340msの同じ長さを受理して照合待ちに進む改善を実機確認した。照合と保存の成功はこの時点では未確認。
+
+続く照合録音はCAL rms=210 threshold=750 ms=1040 gap=729、AUDIO samples=17280 voiced=6080 ms=3651でSTEP saveへ進んだ。別発話の照合を実機で通過した。利用者はSettings表示を報告したが、返信を挟む間に無操作30秒でCANCEL/Sleepとなり保存されなかった。これは照合失敗とは区別する。以後は途中返信を挟まず、最終SettingsのClick: save / hold: noで30秒以内に短押しする一連の手順を案内する。
+
+次の一連操作では最初の録音がCAL161/750/ms1040/gap729、samples18560/voiced7680で通過。照合側は発話待ちに入る前のCAL rms=1004 threshold=3012 ms=1040 gap=729でNOISY、samples=0/voiced=0となった。利用者はTry again表示を報告。これは短い発話やDTW不一致ではなく準備時の判定で、入力音の発生源は未確定。700ms待ちと雑音基準は変更せず、開始音停止後さらに約3秒無言で待ち、録音案内がある場合だけ話す再確認を案内した。
