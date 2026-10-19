@@ -42,6 +42,8 @@ class WakeEnrollmentCapture {
   bool terminal() const { return result_!=Result::Calibration && result_!=Result::Waiting && result_!=Result::Recording; }
   Result result() const { return result_; }
   size_t samples() const { return result_==Result::Ready ? count_ : 0; }
+  uint32_t noiseRms() const { return ambient_.noise(); }
+  uint32_t voiceThreshold() const { return ambient_.threshold(); }
  private:
   int16_t* data_; size_t size_,used_=0,count_=0,voiced_=0,quiet_=0,waiting_=0,clipped_=0;
   AmbientGate ambient_; bool active_=false;

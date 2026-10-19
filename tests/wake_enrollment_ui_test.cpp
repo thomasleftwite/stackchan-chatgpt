@@ -18,6 +18,7 @@ void reset() {
   fakeTime=fakeGestureStart=1000;fakeDelayBudget=1000000;fakeHeldForever=false;
   fakeMicBegins=fakeRecordRequests=fakeBeeps=0;fakeMicActive=false;
   fakePlaybackMs=fakePlaybackUntil=0;fakeRecordAction={};fakeWsLoop={};
+  fakeCueDurationMs=fakeCueEndedAt=fakeMicBeganAt=0;
   fakeButtonSchedule=[](uint32_t){return false;};M5.BtnA={};M5.Display={};face.state={};
   configured=pcOnline=false;WiFi.state=0;consumed=true;enrollmentActive=false;
   fakeWakeAvailable=true;fakeEnrollCommits=0;fakeEnrollPending=fakeEnrollVerified=false;
@@ -47,6 +48,28 @@ void cleanAudio() {
   };
 }
 int main() {
+  reset();interactions(false);Serial.messages.clear();
+  fakeRecordAction=[](int16_t* data,size_t n,uint32_t){
+    for(size_t i=0;i<n;++i)data[i]=static_cast<int16_t>(i%2 ? 1600 : -1600);return true;
+  };
+  enrollCall();Serial.messages.clear();strlcpy(command,"GEM INFO",sizeof(command));dispatch();
+  const bool replayedCal=std::any_of(Serial.messages.begin(),Serial.messages.end(),[](const std::string& line){
+    return line.find("GEM ENROLL CAL rms=1600 threshold=4800 ")==0;
+  });
+  const bool replayedResult=std::any_of(Serial.messages.begin(),Serial.messages.end(),[](const std::string& line){
+    return line.find("GEM ENROLL result=NOISY")==0;
+  });
+  check(replayedCal && replayedResult,"state query replays the last calibration and failure after transient logs are missed");
+  reset();cleanAudio();fakeCueDurationMs=500;
+  face.state.wake(fakeTime);size_t settlingCount=0;
+  const auto settlingResult=enrollmentCapture(Mode::Enrolling,settlingCount);
+  check(!strcmp(settlingResult,"READY") && settlingCount>0 && fakeMicBeganAt>=fakeCueEndedAt+700,
+    "enrollment microphone starts only after cue completes and a 700ms quiet gap");
+  reset();cleanAudio();fakeCueDurationMs=500;face.state.wake(fakeTime);
+  fakeButtonSchedule=[pressed=fakeTime+600](uint32_t now){return now>=pressed;};
+  size_t cancelledCount=0;
+  check(!strcmp(enrollmentCapture(Mode::Enrolling,cancelledCount),"CANCEL") && !fakeMicBegins && !cancelledCount,
+    "cancel during the speaker settling gap never starts microphone recording");
   reset();cleanAudio();interactions(true);const auto before=generation;
   for(unsigned i=0;i<2700;++i) { loop();if(fakeEnrollCommits)break; }
   check(fakeEnrollCommits==1 && !enrollmentActive && face.state.asleep && !fakeMicActive && generation==before && fakeMicBegins==2,

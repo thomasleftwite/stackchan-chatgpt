@@ -29,6 +29,7 @@ inline bool fakeMicActive = false, fakeCanvasFailure = false;
 inline std::function<bool(uint32_t)> fakeButtonSchedule;
 inline std::function<void()> fakeWsLoop;
 inline uint32_t fakePlaybackMs = 0, fakePlaybackUntil = 0;
+inline uint32_t fakeCueDurationMs = 0, fakeCueEndedAt = 0, fakeMicBeganAt = 0;
 inline uint32_t millis() { return fakeTime; }
 inline void delay(unsigned ms) { fakeTime += ms; if (fakeTime > fakeDelayBudget) throw std::runtime_error("button release wait exceeded budget"); }
 inline size_t strlcpy(char* out, const char* in, size_t capacity) {
@@ -69,7 +70,7 @@ struct FakeMic {
   struct Config { uint32_t sample_rate = 16000; unsigned magnification = 4; } settings;
   Config config() { return settings; }
   void config(Config value) { settings = value; }
-  bool begin() { ++fakeMicBegins; fakeMicActive = true; return true; }
+  bool begin() { ++fakeMicBegins; fakeMicActive = true; fakeMicBeganAt = fakeTime; return true; }
   void end() { fakeMicActive = false; }
   void setBufferReleaseCallback(void*, void (*)(void*, void*, size_t)) {}
   bool record(int16_t* data, size_t n, uint32_t rate, bool = false) { ++fakeRecordRequests; return fakeRecordAction ? fakeRecordAction(data,n,rate) : false; }
@@ -81,7 +82,8 @@ struct FakeSpeaker {
   void end() { fakePlaybackUntil = 0; }
   void stop() { fakePlaybackUntil = 0; }
   void setVolume(int) {}
-  bool tone(int, int) { ++fakeBeeps; return true; }
+  bool tone(int, int) { ++fakeBeeps; fakeCueEndedAt = fakeTime + fakeCueDurationMs;
+    if(fakeCueDurationMs) fakePlaybackUntil = fakeCueEndedAt; return true; }
   bool isPlaying() const { return fakePlaybackUntil && static_cast<int32_t>(fakePlaybackUntil - fakeTime) > 0; }
   bool playRaw(const int16_t*, size_t, unsigned, bool, int, int) { fakePlaybackUntil = fakeTime + fakePlaybackMs; return true; }
 };

@@ -19,7 +19,8 @@ int main() {
   { WakeEnrollmentCapture w(buffer.data(),buffer.size());feed(w,0,50);feed(w,2400,10);feed(w,0,20);
     check(w.result()==R::Short && !w.samples(),"brief noise or too-short call cannot be registered"); }
   { WakeEnrollmentCapture w(buffer.data(),buffer.size());feed(w,1600,50);
-    check(w.result()==R::Noisy,"loud calibration prevents enrollment"); }
+    check(w.result()==R::Noisy,"loud calibration prevents enrollment");
+    check(w.noiseRms()==1600 && w.voiceThreshold()==4800,"diagnostic noise and threshold reflect the rejected calibration"); }
   { WakeEnrollmentCapture w(buffer.data(),buffer.size());feed(w,0,50);feed(w,32767,30);feed(w,0,20);
     check(w.result()==R::Clipped && !w.samples(),"clipped microphone audio is rejected"); }
   { WakeEnrollmentCapture w(buffer.data(),buffer.size());feed(w,0,50);feed(w,2400,200);
