@@ -1,6 +1,6 @@
 # 第3段階R01: 1パターンの安全な呼びかけ再登録
 
-版: R01 / 2026-10-19（日本時間）。対象: M5AtomS3R + Atomic Voice Base A149、Arduino-ESP32 2.0.17 / PlatformIO、atoms3r-gemini-device。目的: 通常の質問操作と分けた登録画面で、既存登録を守りながら1パターンを再登録する。複数サンプル登録は後段。現時点は実装/オフライン検証、実機未導入。
+版: R01 / 2026-10-19（日本時間）。対象: M5AtomS3R + Atomic Voice Base A149、Arduino-ESP32 2.0.17 / PlatformIO、atoms3r-gemini-device。目的: 通常の質問操作と分けた登録画面で、既存登録を守りながら1パターンを再登録する。複数サンプル登録は後段。実装/オフライン検証済み。アプリ限定導入・通常起動・既存登録読込・Sleeping/mic停止を確認。実登録の操作は確認中。
 
 ## 操作と仕様
 
@@ -37,10 +37,26 @@
 
 ## 導入と未確認範囲
 
-実機はStage2 R01のまま。Stage3はアプリ領域0x10000限定の候補を準備し、設定/既存登録を保持して導入する。登録置換は利用者の登録画面の操作と最終短押しでだけ行う。SPIFFSイメージ書込みは使わない。Stage2復旧イメージを保持する。
+Stage3はアプリ領域0x10000限定で導入する。設定/既存登録の領域を保持し、登録置換は利用者の登録画面の操作と最終短押しでだけ行う。SPIFFSイメージ書込みは使わない。Stage2復旧イメージを保持する。実機導入の最新結果は下記。
 
 最終ビルドは通常版atoms3r、端末版atoms3r-gemini-device、表示デモatoms3r-face-demoの3/3成功。候補は.pio/firmware-snapshots/gemini-face-stage3-r01.bin（1,469,328 bytes）、SHA256: 6D0746268D50C55394151730D39EE589C9337F0ADCD2C899E86382DAA14F34A4。端末版のRAM使用量57,624 bytes。直前のStage2復旧イメージ.pio/firmware-snapshots/gemini-face-stage2-r01.binは保持し、SHA256 C43024F6272FF7D3FB12180517E8B7653A13577F3AEA10E08469717746F3ECE1の一致を再確認した。
 
-導入手順は接続COMを再確認→監視/PC起動ツール停止→esptool --chip esp32s3 --port COM4 --baud 460800 write_flash 0x10000 .pio/firmware-snapshots/gemini-face-stage3-r01.bin→ハッシュ検証→必要時は手動リセット。復旧時は同じアプリ領域へStage2イメージだけを書き戻す。登録保存後に旧ファームウェアへ戻しても登録内容は自動で旧呼びかけへ戻らない。erase_flash/uploadfsは使用しない。今回の実機書込み・API呼出しは0回。
+導入手順は接続COMを再確認→監視/PC起動ツール停止→esptool --chip esp32s3 --port COM4 --baud 460800 write_flash 0x10000 .pio/firmware-snapshots/gemini-face-stage3-r01.bin→ハッシュ検証→必要時は手動リセット。復旧時は同じアプリ領域へStage2イメージだけを書き戻す。登録保存後に旧ファームウェアへ戻しても登録内容は自動で旧呼びかけへ戻らない。erase_flash/uploadfsは使用しない。候補準備時点では実機書込み・API呼出し0回。導入結果は下記。
 
 実機導入後はまず登録画面を開いて取消し、元の呼びかけが使えることを確認。次に新登録/別発話の検証/保存を行い、リセット後の保持と質問回答への回帰を確認する。実機の音量/録音品質/誤検出/実保存/電源断耐性は未検証。配布ホストEXEはprotocol v2のまま使えるが、0.3.0-preview.1の状態ログ一覧はStage2までなので、Stage3固有の操作は端末画面で行う。今回EXEは再生成しない。
+
+## 導入作業の委譲と接続試行（2026-10-19）
+
+利用者から、今回開発中の一連のコード生成・デバッグに必要なプロジェクト内の追加/削除/編集とデバイスフラッシュの権限を委譲された。対象案件内で進め、通常の再書込みごとに承認を求め直さない。実機で必要な物理ボタン操作と聴取/表示の確認は利用者に依頼する。
+
+COM4のUSB VID:PID=303A:1001、候補SHA256一致、監視/PC起動プロセスなしを確認し、flash_application_only.pyで0x10000への導入を試行。自動接続はNo serial data receivedで終了コード1。消去/書込み開始前で、第3段階の導入は未完了。前回同様、利用者による本体リセットボタン長押しでのダウンロードモード移行後に再試行する。接触不良そのものの原因究明は保留を維持する。
+
+## アプリ書込み成功・通常起動の確認待ち（2026-10-19）
+
+利用者のダウンロードモード移行後、COM4を再確認し、同じ候補1,469,328 bytesを0x10000へ書込み。消去範囲0x10000〜0x176fff、Hash of data verified、終了コード0。設定・Wi-Fi・登録を含むSPIFFS/NVS/パーティション表は書換え対象外。自動リセット後、制御線を解放した8秒間のGEM INFO照会で状態応答0件、panic/brownout検出なし。無応答を通常起動成功とは扱わず、利用者へ本体リセット短押しを依頼した。証跡は.pio/device-check/face-stage3-flash-20261019-r02.jsonとface-stage3-boot-20261019-r01.json。実マイク/API呼出しは0回、登録取消/再登録/リセット後保持/会話回帰は未確認。
+
+## 通常起動と既存登録の読込確認（2026-10-19）
+
+本体リセット短押し後、利用者が画面表示を確認。USB状態照会でGEM WAKE available=1、READY v2、UI stage=3 mode=2 asleep=1 mic=0を受信。既存登録が読め、Sleepingでマイク停止していることを確認した。configured=0 wifi=0 pc=0、CAPTURE/RESULTはNONE。証跡.pio/device-check/face-stage3-boot-20261019-r02.json。次は録音を伴わない登録画面の取消確認。質問音声/API送信はまだ行っていない。
+
+登録取消の案内後の状態専用監視はusb_errorで終了し、取消結果を示す状態行は未取得。証跡.pio/device-check/face-stage3-cancel-20261019-r01.json。実機の異常終了とは断定しない。利用者による画面上の取消結果は回答待ちで、取消成功は未確認。USB接触不良の原因究明保留を維持し、今回追加調査は行わない。監視用の診断スクリプトは.pio/device-check/observe_stage3.py（既存の許可リストを使い、状態照会のみ、音声/秘密情報は保存しない）。
