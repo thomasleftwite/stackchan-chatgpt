@@ -24,3 +24,13 @@ Sleepingで画面ボタンを約7秒長押しして離すと登録へ入る。1/
 端末版atoms3r-gemini-deviceと通常版atoms3rのビルド2/2成功。端末版RAM58,000 bytes、ELF flash1,470,845 bytes。候補.pio/firmware-snapshots/gemini-face-stage3-r06.bin、1,471,216 bytes、SHA256 F9860E181B02856F4077CE3E3B9B17BD3E7FE768797EE5A9DD49B313DBEE8F3D。R05復旧イメージのSHA256 64CAB8CBB51F7493A976B642C3FBF41A5EB904A2404E33F55239FF472807DB88も再確認した。BUILD enrollment=6で識別する。
 
 COM4のアプリ0x10000のみ書込み成功（消去0x10000〜0x177fff、Hash of data verified、終了コード0）。自動リセット後の状態照会でBUILD enrollment=6、Sleep/mic=0を確認。SPIFFS/NVS/登録領域は書き換えていない。継続監視は単一セッション49481、最大10分、.pio/device-check/face-stage3-r06-live-20261019-r01.jsonへ固定状態と数値だけを追記する。3回登録の物理試験は利用者の操作待ち。
+
+## 初回実機試験と無言試験
+
+利用者はRoom too noisyを報告。最初の試行と短押しでの再試行は計6回すべてrecord1の準備でNOISYとなり、発話録音に入らなかった。CAL rmsは3131/2976/2034/1843/1438/2011、gap727〜728ms、校正1040〜1041ms、録音窓samples=0/voiced=0。この結果を3回の相互照合失敗とは扱わない。短押し再試行自体は実機で機能した。
+
+続いて発話せず10秒待つ試験を案内。CAL rms=329 threshold=987 ms=1039 gap=728で準備を通過し、Learning call/mic=1へ入り、無発話のためNO_SPEECHで再試行画面へ戻った。少なくともこの回では開始音後の700ms待ちと環境音測定が成立した。先行6回の入力音が環境音/準備中の発話/端末音のどれだったかは未確定。雑音基準や待ち時間は変更していない。3回連続の録音/自動保存はまだ未確認。
+
+追加の無言試験もCAL rms=242 threshold=750 ms=1040 gap=728で通過し、NO_SPEECHになった。利用者も無言で待ち終わったと回答。無言時は2回連続で準備が通過したため、Learning call表示まで無言を保ってから各回発話する3回登録を案内している。
+
+その後の3回もCAL rms147/220/113、gap728msで準備を通過したが、すべてvoiced=0のままNO_SPEECHとなった（合計NOISY6/NO_SPEECH5/SAVED0）。利用者は別の表示と回答しているため、追加操作を止め、上段/下段の実表示とLearning call後に発話できたかを確認中。3回整合確認にはまだ到達していない。無言試験の通過から雑音原因が解消したとは断定しない。
