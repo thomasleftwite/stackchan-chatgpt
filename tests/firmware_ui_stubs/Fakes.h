@@ -24,6 +24,7 @@ inline bool fakeHeldForever = false;
 inline uint32_t fakeDelayBudget = std::numeric_limits<uint32_t>::max();
 inline unsigned fakeBeeps = 0, fakeRecordRequests = 0;
 inline unsigned fakeMicBegins = 0, fakeFrames = 0;
+inline std::function<bool(int16_t*,size_t,uint32_t)> fakeRecordAction;
 inline bool fakeMicActive = false, fakeCanvasFailure = false;
 inline std::function<bool(uint32_t)> fakeButtonSchedule;
 inline std::function<void()> fakeWsLoop;
@@ -71,7 +72,7 @@ struct FakeMic {
   bool begin() { ++fakeMicBegins; fakeMicActive = true; return true; }
   void end() { fakeMicActive = false; }
   void setBufferReleaseCallback(void*, void (*)(void*, void*, size_t)) {}
-  bool record(int16_t*, size_t, uint32_t, bool = false) { ++fakeRecordRequests; return false; }
+  bool record(int16_t* data, size_t n, uint32_t rate, bool = false) { ++fakeRecordRequests; return fakeRecordAction ? fakeRecordAction(data,n,rate) : false; }
   unsigned isRecording() { return 0; }
   bool isRunning() const { return fakeMicActive; }
 };

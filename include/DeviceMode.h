@@ -21,6 +21,7 @@ class State {
   bool mayStart() const { return !asleep && (mode == Mode::WakeWait || mode == Mode::Armed); }
   bool microphoneAllowed(bool wakeEnabled = false) const {
     return !asleep && (mode == Mode::Preparing || mode == Mode::Listening ||
+                      mode == Mode::Enrolling || mode == Mode::Verify ||
                       (wakeEnabled && mode == Mode::WakeWait));
   }
   void tick(uint32_t now) {

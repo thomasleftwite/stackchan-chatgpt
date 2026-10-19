@@ -3,15 +3,20 @@
 #include "LocalWake.h"
 #include "AudioDevice.h"
 
-// Read-only reuse of one template; never register or send wake audio.
+// Local call detection and verified enrollment. Never send call audio to a server.
 class GeminiWake {
  public:
   void begin() {
     String error;
-    available_ = SPIFFS.begin(false) && config_.load(error, false) &&
-                 config_.wakeEnabled && wake_.begin(config_, false) && wake_.registered();
+    initialized_ = SPIFFS.begin(false) && config_.load(error, false) && wake_.begin(config_, false);
+    available_ = initialized_ && config_.wakeEnabled && wake_.registered();
   }
   bool available() const { return available_; }
+  bool canEnroll() const { return initialized_ && config_.wakeEnabled; }
+  bool prepare(const int16_t* data,size_t count) { return canEnroll() && wake_.prepareCandidate(data,count); }
+  bool verify(const int16_t* data,size_t count) { return canEnroll() && wake_.verifyCandidate(data,count); }
+  bool commit() { const bool ok=wake_.commitCandidate(); if(ok) available_=true; return ok; }
+  void cancel() { if(initialized_) wake_.cancelCandidate(); }
   void stop(AudioDevice& audio) {
     if (!running_) return;
     audio.stop(); wake_.reset(); running_ = false;
@@ -35,5 +40,5 @@ class GeminiWake {
   Config config_;
   LocalWake wake_;
   int16_t frame_[320]{};
-  bool available_ = false, running_ = false;
+  bool available_ = false, running_ = false, initialized_ = false;
 };

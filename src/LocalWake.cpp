@@ -14,12 +14,13 @@ bool LocalWake::begin(const Config& config, bool recoverBackup) {
   raw_ = static_cast<int16_t*>(ps_malloc(48000 * sizeof(int16_t)));
   if (!raw_ || !engine_.init(simplevox::MfccConfig{})) return false;
   const String backup = config.templatePath + ".bak";
-  if (recoverBackup && !validFile(config.templatePath) && validFile(backup)) {
+  if (recoverBackup && validFile(backup)) {
     SPIFFS.remove(config.templatePath);
     SPIFFS.rename(backup, config.templatePath);
   }
-  if (validFile(config.templatePath))
-    reference_.reset(engine_.loadFile(("/spiffs" + config.templatePath).c_str()));
+  // A remaining backup means publication did not finish, even if primary has a valid header.
+  const String active = validFile(backup) ? backup : config.templatePath;
+  if (validFile(active)) reference_.reset(engine_.loadFile(("/spiffs" + active).c_str()));
   reset(); return true;
 }
 void LocalWake::reset() {
@@ -27,21 +28,63 @@ void LocalWake::reset() {
   if (raw_) memset(raw_, 0, 48000 * sizeof(int16_t));
   gate_.reset(16000, 400, 200, 3000, 3000, config_->energyThreshold);
 }
+bool LocalWake::sameFile(const String& path, const simplevox::MfccFeature& feature) {
+  if (!validFile(path)) return false;
+  std::unique_ptr<simplevox::MfccFeature> loaded(engine_.loadFile(("/spiffs" + path).c_str()));
+  if (!loaded || loaded->size()!=feature.size() || loaded->dimension()!=feature.dimension()) return false;
+  for(int i=0;i<feature.size();++i)
+    if(memcmp(loaded->feature(i),feature.feature(i),feature.dimension()*sizeof(int16_t))) return false;
+  return true;
+}
 bool LocalWake::save(const simplevox::MfccFeature& feature) {
-  const String path = config_->templatePath, temp = path + ".tmp", backup = path + ".bak";
-  if (!engine_.saveFile(("/spiffs" + temp).c_str(), feature) || !validFile(temp)) {
+  const String path=config_->templatePath, temp=path+".tmp", backup=path+".bak";
+  if (!engine_.saveFile(("/spiffs"+temp).c_str(),feature) || !sameFile(temp,feature)) {
     SPIFFS.remove(temp); return false;
   }
-  SPIFFS.remove(backup);
-  File old = SPIFFS.open(path, "r");
-  const bool hadOld = old && !old.isDirectory();
-  old.close();
-  if (hadOld && !SPIFFS.rename(path, backup)) { SPIFFS.remove(temp); return false; }
-  if (!SPIFFS.rename(temp, path)) {
-    if (hadOld) SPIFFS.rename(backup, path);
+  File old=SPIFFS.open(path,"r"); const bool hadOld=old && !old.isDirectory(); old.close();
+  const bool recoverable=validFile(backup);
+  if(recoverable) {
+    // Keep the last committed backup while removing an interrupted target.
+    if(hadOld && !SPIFFS.remove(path)) return false;
+  } else {
+    File prior=SPIFFS.open(backup,"r"); const bool hadBackup=prior && !prior.isDirectory(); prior.close();
+    if(hadBackup && !SPIFFS.remove(backup)) return false;
+    if(hadOld && !SPIFFS.rename(path,backup)) { SPIFFS.remove(temp); return false; }
+  }
+  if(!SPIFFS.rename(temp,path)) {
+    if(hadOld || recoverable) SPIFFS.rename(backup,path);
+    SPIFFS.remove(temp); return false;
+  }
+  if(!sameFile(path,feature)) {
+    SPIFFS.remove(path);
+    if(hadOld || recoverable) SPIFFS.rename(backup,path);
     return false;
   }
-  SPIFFS.remove(backup); return true;
+  if((hadOld || recoverable) && !SPIFFS.remove(backup)) {
+    // A successful commit must retire the rollback record. Otherwise retain the old call.
+    SPIFFS.remove(path); SPIFFS.rename(backup,path); return false;
+  }
+  return true;
+}
+void LocalWake::cancelCandidate() { pending_.reset(); verified_=false; }
+bool LocalWake::prepareCandidate(const int16_t* samples,size_t count) {
+  cancelCandidate();
+  if(!raw_ || !samples || count<6400 || count>48000) return false;
+  pending_.reset(engine_.create(samples,static_cast<int>(count)));
+  if(!pending_ || pending_->size()<2 || pending_->size()>186 || pending_->dimension()!=12) { cancelCandidate(); return false; }
+  return true;
+}
+bool LocalWake::verifyCandidate(const int16_t* samples,size_t count) {
+  verified_=false;
+  if(!pending_ || !samples || count<6400 || count>48000) return false;
+  std::unique_ptr<simplevox::MfccFeature> check(engine_.create(samples,static_cast<int>(count)));
+  if(!check || check->size()<2) return false;
+  verified_=simplevox::calcDTW(*pending_,*check)<config_->wakeThreshold;
+  return verified_;
+}
+bool LocalWake::commitCandidate() {
+  if(!pending_ || !verified_ || !save(*pending_)) return false;
+  reference_=std::move(pending_); verified_=false; reset(); return true;
 }
 bool LocalWake::push(const int16_t* data, bool registration, String& message) {
   if (!raw_) return false;
@@ -55,7 +98,7 @@ bool LocalWake::push(const int16_t* data, bool registration, String& message) {
   if (state != SpeechGate::Result::Complete) return false;
   // Exclude most trailing silence, consistently for registration and matching.
   const size_t count = used_ > 4800 ? used_ - 4800 : used_;
-  std::unique_ptr<simplevox::MfccFeature> candidate(engine_.create(raw_, count));
+  std::unique_ptr<simplevox::MfccFeature> candidate(engine_.create(raw_, static_cast<int>(count)));
   bool result = false;
   if (candidate && candidate->size() >= 2) {
     if (registration) {

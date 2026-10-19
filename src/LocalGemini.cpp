@@ -12,6 +12,7 @@
 #include "UtteranceWindow.h"
 #include "FaceUI.h"
 #include "GeminiWake.h"
+#include "WakeEnrollment.h"
 
 namespace {
 constexpr size_t maxInput = UtteranceWindow::maxInput, captureCapacity = UtteranceWindow::capacity, maxOutput = 240000;
@@ -31,6 +32,8 @@ bool credit = false, outputEnded = false, played = false, complete = false, clos
 uint32_t generation = 0, pressedAt = 0;
 uint32_t pcSeen = 0;
 bool pcOnline = false;
+bool enrollmentActive = false;
+void pollCommands();
 livepcm::Output reply;
 char lastResult[160] = "GEM RESULT NONE", lastCapture[160] = "GEM CAPTURE NONE";
 std::atomic<size_t> captured{0};
@@ -247,6 +250,71 @@ void run(bool microphone) {
   else { face.set(fault == 9 ? Mode::Notice : Mode::Error, fault == 9 ? "Cancelled" : "Check PC service"); waitUi(1500); }
   M5.update(); consumed = true; idle();
 }
+bool enrollmentChoice(const char* note, Mode mode=Mode::Setup) {
+  face.set(mode,note); const auto start=millis(); uint32_t hold=0; bool down=false;
+  while(millis()-start<30000) {
+    M5.update(); pollCommands(); updateUi();
+    if(M5.BtnA.wasPressed()) { down=true; hold=millis(); }
+    if(down && M5.BtnA.isPressed() && millis()-hold>=2000) return false;
+    if(down && M5.BtnA.wasReleased()) return true;
+    delay(5);
+  }
+  return false;
+}
+const char* enrollmentCapture(Mode mode, size_t& count) {
+  count=0; wipe(); face.set(Mode::Preparing,"Please stay quiet");
+  if(!audio.cue() || !audio.listen(16000)) { audio.stop(); return "IO"; }
+  WakeEnrollmentCapture window(input,captureCapacity); int16_t frame[320]{};
+  const auto started=millis();
+  while(!window.terminal() && millis()-started<10000) {
+    M5.update(); pollCommands(); updateUi();
+    if(M5.BtnA.wasPressed()) { audio.stop(); memset(frame,0,sizeof(frame)); return "CANCEL"; }
+    if(!audio.read(frame,320)) { audio.stop(); memset(frame,0,sizeof(frame)); return "IO"; }
+    const auto before=window.result(); window.push(frame,320);
+    if(before==WakeEnrollmentCapture::Result::Calibration && window.result()==WakeEnrollmentCapture::Result::Waiting)
+      face.set(mode,mode==Mode::Verify ? "Repeat same call" : "Say call (max 3s)");
+    delay(2);
+  }
+  audio.stop(); memset(frame,0,sizeof(frame)); count=window.samples();
+  using R=WakeEnrollmentCapture::Result;
+  switch(window.result()) {
+    case R::Ready: return "READY";
+    case R::Empty: return "NO_SPEECH";
+    case R::Short: return "SHORT";
+    case R::Long: return "LONG";
+    case R::Noisy: return "NOISY";
+    case R::Clipped: return "CLIPPED";
+    default: return "TIMEOUT";
+  }
+}
+void enrollCall() {
+  wakeInput.stop(audio); wipe(); wakeInput.cancel();
+  enrollmentActive=true; face.state.wake(millis());
+  const char* result="CANCEL"; size_t count=0;
+  do {
+    if(!wakeInput.canEnroll()) { result="UNAVAILABLE"; break; }
+    if(!enrollmentChoice("Click: record call")) break;
+    result=enrollmentCapture(Mode::Enrolling,count);
+    if(strcmp(result,"READY")) break;
+    if(!wakeInput.prepare(input,count)) { result="IO"; break; }
+    wipe(); result="CANCEL";
+    if(!enrollmentChoice("Click: try call",Mode::Verify)) break;
+    result=enrollmentCapture(Mode::Verify,count);
+    if(strcmp(result,"READY")) break;
+    if(!wakeInput.verify(input,count)) { result="MISMATCH"; break; }
+    wipe(); result="CANCEL";
+    if(!enrollmentChoice("Click: save / hold: no")) break;
+    result=wakeInput.commit() ? "SAVED" : "SAVE_FAIL";
+  } while(false);
+  wipe(); wakeInput.cancel(); enrollmentActive=false; consumed=true;
+  Serial.printf("GEM ENROLL result=%s\n",result);
+  const char* notice=!strcmp(result,"SAVED") ? "Call saved" : !strcmp(result,"SHORT") ? "Call too short" :
+    !strcmp(result,"LONG") ? "Call too long" : !strcmp(result,"NO_SPEECH") ? "No call heard" :
+    !strcmp(result,"NOISY") ? "Room too noisy" : !strcmp(result,"CLIPPED") ? "Voice too loud" :
+    !strcmp(result,"MISMATCH") ? "Calls did not match" : !strcmp(result,"SAVE_FAIL") ? "Save failed (kept)" :
+    !strcmp(result,"UNAVAILABLE") ? "Setup unavailable" : !strcmp(result,"CANCEL") ? "Cancelled / kept old" : "Try again / kept old";
+  face.set(Mode::Notice,notice); waitUi(1800); face.state.sleep(millis()); idle();
+}
 void configure() {
   char candidateHost[16]{}, candidateToken[65]{}, extra; unsigned candidatePort;
   if (sscanf(command, "GEM CONFIG %15s %u %64s %c", candidateHost, &candidatePort, candidateToken, &extra) != 3 || !candidatePort || candidatePort > 65535 || strlen(candidateToken) != 64) return;
@@ -259,6 +327,9 @@ void configure() {
   Serial.println(configured ? "GEM WIFI CONNECTED" : "GEM WIFI FAIL"); idle();
 }
 void dispatch() {
+  if(enrollmentActive && strcmp(command,"GEM PING") && strcmp(command,"GEM INFO") && strcmp(command,"GEM STOP")) {
+    Serial.println("GEM LOCAL BUSY"); return;
+  }
   if (strcmp(command, "GEM PING") == 0 || strcmp(command, "GEM INFO") == 0) {
     if (strcmp(command, "GEM PING") == 0 && configured) {
       const bool wasOnline = pcReady(); pcSeen = millis(); pcOnline = true;
@@ -266,13 +337,21 @@ void dispatch() {
     }
     Serial.println("GEM READY v=2 input=16000 output=24000 mono=1 bits=16");
     Serial.printf("GEM STATE configured=%u wifi=%u pc=%u\n", configured ? 1 : 0, WiFi.status() == WL_CONNECTED ? 1 : 0, pcReady() ? 1 : 0);
-    Serial.printf("GEM UI stage=2 mode=%u asleep=%u mic=%u\n", static_cast<unsigned>(face.state.mode), face.state.asleep ? 1 : 0, M5.Mic.isRunning() ? 1 : 0);
+    Serial.printf("GEM UI stage=3 mode=%u asleep=%u mic=%u\n", static_cast<unsigned>(face.state.mode), face.state.asleep ? 1 : 0, M5.Mic.isRunning() ? 1 : 0);
     Serial.println(lastCapture); Serial.println(lastResult);
   }
   else if (strncmp(command, "GEM CONFIG ", 11) == 0) configure();
   else if (strcmp(command, "GEM PROBE") == 0) run(false);
-  else if (strcmp(command, "GEM STOP") == 0) { pcOnline = false; configured = false; memset(token, 0, sizeof(token)); memset(auth, 0, sizeof(auth)); Serial.println("GEM PC OFFLINE"); idle(); }
+  else if (strcmp(command, "GEM STOP") == 0) { pcOnline = false; configured = false; memset(token, 0, sizeof(token)); memset(auth, 0, sizeof(auth)); Serial.println("GEM PC OFFLINE"); if(enrollmentActive) updateUi(); else idle(); }
 }
+void pollCommands() {
+  while (Serial.available()) { const char c = Serial.read();
+    if (c == '\n') { command[commandLength] = 0; if (!overflow) dispatch(); memset(command, 0, sizeof(command)); commandLength = 0; overflow = false; }
+    else if (c != '\r') { if (commandLength < sizeof(command) - 1) command[commandLength++] = c; else overflow = true; }
+  }
+
+}
+
 }
 void setup() {
   auto cfg = M5.config(); cfg.internal_spk = false; cfg.internal_mic = false; cfg.external_speaker.atomic_echo = true; cfg.serial_baudrate = 115200;
@@ -292,7 +371,16 @@ void loop() {
   if (!consumed && M5.BtnA.isPressed() && millis() - pressedAt >= 2000) {
     consumed = true;
     // A held button waking the device cannot also start a recording.
-    if (face.state.asleep) { face.state.wake(millis()); face.tick(millis(), true); return; }
+    if (face.state.asleep) {
+      face.set(Mode::Setup,"Hold 5s: learn call");
+      while(M5.BtnA.isPressed() && millis()-pressedAt<5000) { M5.update(); updateUi(); delay(10); }
+      if(M5.BtnA.isPressed()) {
+        face.set(Mode::Setup,"Release: learn call"); const auto wait=millis();
+        while(M5.BtnA.isPressed() && millis()-wait<10000) { M5.update(); updateUi(); delay(10); }
+        if(!M5.BtnA.isPressed()) enrollCall(); else { face.state.sleep(millis()); idle(); }
+      } else { face.state.wake(millis()); face.tick(millis(),true); }
+      return;
+    }
     if (!face.state.mayStart() || !canRecord()) return;
     face.set(Mode::Armed, "Release to record"); const auto releaseWait = millis();
     while (M5.BtnA.isPressed() && millis() - releaseWait < 10000) { M5.update(); updateUi(); delay(10); }
@@ -305,10 +393,7 @@ void loop() {
     else face.state.sleep(millis());
     face.tick(millis(), true);
   }
-  while (Serial.available()) { const char c = Serial.read();
-    if (c == '\n') { command[commandLength] = 0; if (!overflow) dispatch(); memset(command, 0, sizeof(command)); commandLength = 0; overflow = false; }
-    else if (c != '\r') { if (commandLength < sizeof(command) - 1) command[commandLength++] = c; else overflow = true; }
-  }
+  pollCommands();
   if (face.state.mode == Mode::WakeWait && face.state.microphoneAllowed(true) &&
       pcReady() && WiFi.status() == WL_CONNECTED && consumed && !M5.BtnA.isPressed()) {
     if (wakeInput.poll(audio)) { Serial.println("GEM WAKE MATCH"); run(true); }
