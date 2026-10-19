@@ -23,7 +23,7 @@ bool keyOk(const String& s) {
 }
 }
 
-bool Config::load(String& error) {
+bool Config::load(String& error, bool includeSecrets) {
   File f = SPIFFS.open("/config.yaml", "r");
   if (!f || f.isDirectory() || f.size() > 8192) { error = "config.yaml missing/too large"; return false; }
   JsonDocument d;
@@ -58,6 +58,7 @@ bool Config::load(String& error) {
   systemPrompt = d["gemini"]["system_prompt"] | systemPrompt.c_str();
   if (!token(transcriptionModel) || !token(realtimeModel) || !token(voice) ||
       !token(geminiModel) || systemPrompt.length() > 2048) { error = "Invalid API settings"; return false; }
+  if (!includeSecrets) return true;
   File s = SPIFFS.open("/secrets.json", "r");
   // SPIFFS can return a directory handle for an absent path on this core.
   // A real file with invalid JSON must still fail closed below.

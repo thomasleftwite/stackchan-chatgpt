@@ -11,12 +11,14 @@
 #include "LivePcm.h"
 #include "UtteranceWindow.h"
 #include "FaceUI.h"
+#include "GeminiWake.h"
 
 namespace {
 constexpr size_t maxInput = UtteranceWindow::maxInput, captureCapacity = UtteranceWindow::capacity, maxOutput = 240000;
 size_t inputCount = 0;
 AudioDevice audio;
 FaceUI face;
+GeminiWake wakeInput;
 using deviceui::Mode;
 WebSocketsClient ws;
 int16_t *input = nullptr, *output = nullptr;
@@ -53,17 +55,20 @@ void released(void*, void* data, size_t length) {
 }
 bool pcReady() { return configured && pcOnline && millis() - pcSeen < 20000; }
 void updateUi() {
+  face.wakeAvailable(wakeInput.available());
   face.link(!configured ? deviceui::Link::Unconfigured : WiFi.status() != WL_CONNECTED ? deviceui::Link::WifiOffline :
             !pcReady() ? deviceui::Link::PcOffline : deviceui::Link::Ready);
   const bool wasAsleep = face.state.asleep;
   face.tick(millis());
   if (!wasAsleep && face.state.asleep) audio.stop();
+  if (face.state.mode != Mode::WakeWait || !face.state.microphoneAllowed(true) ||
+      !pcReady() || WiFi.status() != WL_CONNECTED || M5.BtnA.isPressed() || !consumed) wakeInput.stop(audio);
 }
 void waitUi(uint32_t duration) {
   const auto started = millis();
   while (millis() - started < duration) { M5.update(); updateUi(); delay(10); }
 }
-void idle() { face.state.rest(millis()); face.set(face.state.mode); updateUi(); }
+void idle() { face.state.rest(millis()); face.set(face.state.mode, wakeInput.available() && !face.state.asleep ? "Say call / hold to ask" : ""); updateUi(); }
 bool canRecord() {
   if (!configured || WiFi.status() != WL_CONNECTED || !pcReady()) {
     Serial.printf("GEM START BLOCKED reason=%s\n", !configured ? "setup" : WiFi.status() != WL_CONNECTED ? "wifi" : "pc");
@@ -217,6 +222,7 @@ bool recordQuestion() {
   Serial.println(lastCapture); return true;
 }
 void run(bool microphone) {
+  wakeInput.stop(audio);
   if (!canRecord()) return;
   wipe();
   if (microphone) {
@@ -237,7 +243,7 @@ void run(bool microphone) {
   }
   face.set(Mode::Sending); const bool ok = transport();
   wipe();
-  if (ok) { face.set(Mode::Cooldown); waitUi(300); }
+  if (ok) { face.set(Mode::Cooldown); waitUi(700); }
   else { face.set(fault == 9 ? Mode::Notice : Mode::Error, fault == 9 ? "Cancelled" : "Check PC service"); waitUi(1500); }
   M5.update(); consumed = true; idle();
 }
@@ -260,7 +266,7 @@ void dispatch() {
     }
     Serial.println("GEM READY v=2 input=16000 output=24000 mono=1 bits=16");
     Serial.printf("GEM STATE configured=%u wifi=%u pc=%u\n", configured ? 1 : 0, WiFi.status() == WL_CONNECTED ? 1 : 0, pcReady() ? 1 : 0);
-    Serial.printf("GEM UI stage=1 mode=%u asleep=%u mic=%u\n", static_cast<unsigned>(face.state.mode), face.state.asleep ? 1 : 0, M5.Mic.isRunning() ? 1 : 0);
+    Serial.printf("GEM UI stage=2 mode=%u asleep=%u mic=%u\n", static_cast<unsigned>(face.state.mode), face.state.asleep ? 1 : 0, M5.Mic.isRunning() ? 1 : 0);
     Serial.println(lastCapture); Serial.println(lastResult);
   }
   else if (strncmp(command, "GEM CONFIG ", 11) == 0) configure();
@@ -275,6 +281,8 @@ void setup() {
   input = static_cast<int16_t*>(heap_caps_calloc(captureCapacity, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   output = static_cast<int16_t*>(heap_caps_calloc(maxOutput, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   if (!input || !output) { face.set(Mode::Error, "PSRAM failed"); Serial.println("GEM MEMORY FAIL"); return; }
+  wakeInput.begin();
+  Serial.printf("GEM WAKE available=%u\n", wakeInput.available() ? 1 : 0);
   face.state.sleep(millis()); idle(); Serial.println("GEM READY v=2 input=16000 output=24000 mono=1 bits=16");
 }
 void loop() {
@@ -301,6 +309,10 @@ void loop() {
     if (c == '\n') { command[commandLength] = 0; if (!overflow) dispatch(); memset(command, 0, sizeof(command)); commandLength = 0; overflow = false; }
     else if (c != '\r') { if (commandLength < sizeof(command) - 1) command[commandLength++] = c; else overflow = true; }
   }
+  if (face.state.mode == Mode::WakeWait && face.state.microphoneAllowed(true) &&
+      pcReady() && WiFi.status() == WL_CONNECTED && consumed && !M5.BtnA.isPressed()) {
+    if (wakeInput.poll(audio)) { Serial.println("GEM WAKE MATCH"); run(true); }
+  } else wakeInput.stop(audio);
   delay(2);
 }
 #endif

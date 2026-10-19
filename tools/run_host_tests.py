@@ -18,7 +18,7 @@ def main():
                               'face-ui': 'face_ui_test.cpp'}[args.suite]
     binary = OUT / (source.stem + (".exe" if os.name == "nt" else ""))
     includes = [ROOT / 'include']
-    if args.suite in ('gemini-ui', 'face-ui'): includes.append(ROOT / 'tests/firmware_ui_stubs')
+    if args.suite in ('gemini-ui', 'face-ui'): includes.insert(0, ROOT / 'tests/firmware_ui_stubs')
     compiler = next((shutil.which(c) for c in ("c++", "g++", "clang++") if shutil.which(c)), None)
     env = os.environ.copy()
     if compiler:

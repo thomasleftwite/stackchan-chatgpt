@@ -7,7 +7,7 @@
 
 class LocalWake {
  public:
-  bool begin(const Config& config);
+  bool begin(const Config& config, bool recoverBackup = true);
   bool registered() const { return bool(reference_); }
   void reset();
   // 320 samples, 16 kHz. All buffers remain local.

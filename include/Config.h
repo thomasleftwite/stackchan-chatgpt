@@ -12,6 +12,6 @@ struct Config {
   String geminiModel = "gemini-2.5-flash";
   String systemPrompt = "あなたはスタックちゃんです。日本語で親しみやすく、短く2文程度で回答してください。";
   String openaiKey, geminiKey;
-  bool load(String& error);
+  bool load(String& error, bool includeSecrets = true);
   bool hasKeys() const { return !openaiKey.isEmpty() && !geminiKey.isEmpty(); }
 };

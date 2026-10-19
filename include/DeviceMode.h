@@ -7,7 +7,7 @@ enum class Mode { Boot, Connecting, Sleep, Waking, WakeWait, Armed, Preparing,
                   Notice, Error, Enrolling, Verify, Setup };
 enum class Link { Unconfigured, WifiOffline, PcOffline, Ready };
 
-// Stage 1 intentionally does not enable wake-word audio input.
+// Runtime also checks links before enabling wake input in WakeWait.
 class State {
  public:
   static constexpr uint32_t sleepAfterMs = 180000, wakingMs = 350;

@@ -57,7 +57,7 @@ void FaceUI::tick(uint32_t now, bool force) {
   const char* hint = note_;
   if (!hint[0]) {
     if (sleeping) hint = "Click: wake";
-    else if (state.mode == Mode::WakeWait) hint = "Hold: manual ask";
+    else if (state.mode == Mode::WakeWait) hint = wakeAvailable_ ? "Say call / hold to ask" : "Hold: manual ask";
     else if (state.mode == Mode::Preparing) hint = "Please stay quiet";
     else if (state.mode == Mode::Listening) hint = "Speak now";
   }

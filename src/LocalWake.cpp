@@ -9,12 +9,12 @@ bool LocalWake::validFile(const String& path) {
       f.read(reinterpret_cast<uint8_t*>(&dims), 4) != 4) return false;
   return validTemplateHeader(tag, frames, dims, f.size());
 }
-bool LocalWake::begin(const Config& config) {
+bool LocalWake::begin(const Config& config, bool recoverBackup) {
   config_ = &config;
   raw_ = static_cast<int16_t*>(ps_malloc(48000 * sizeof(int16_t)));
   if (!raw_ || !engine_.init(simplevox::MfccConfig{})) return false;
   const String backup = config.templatePath + ".bak";
-  if (!validFile(config.templatePath) && validFile(backup)) {
+  if (recoverBackup && !validFile(config.templatePath) && validFile(backup)) {
     SPIFFS.remove(config.templatePath);
     SPIFFS.rename(backup, config.templatePath);
   }

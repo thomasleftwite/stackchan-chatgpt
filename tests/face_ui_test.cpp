@@ -40,6 +40,33 @@ void gesture(uint32_t ms) {
 void awake() { face.state.wake(fakeTime); advance(360); }
 }
 int main() {
+  resetRuntime(); fakeWakeAvailable = true; awake();
+  check(fakeMicActive && fakeWakePolls > 0, "registered call enables local mic only after waking");
+  const auto beforeSleep = fakeWakePolls;
+  gesture(60); advance(100);
+  check(!fakeMicActive && fakeWakePolls == beforeSleep, "sleep stops wake input and polling");
+  awake(); pcOnline = false; loop();
+  check(!fakeMicActive, "PC loss stops wake microphone");
+  pcOnline = true; pcSeen = fakeTime; WiFi.state = 0; loop();
+  check(!fakeMicActive, "WiFi loss keeps wake microphone off");
+  WiFi.state = WL_CONNECTED; loop();
+  check(fakeMicActive, "link recovery restarts local detection");
+  fakeWakeMatch = true;
+  const auto cues = fakeBeeps; loop();
+  check(fakeBeeps == cues + 1 && face.state.mode == Mode::WakeWait && !fakeMicActive,
+        "matched call stops detection then cues question and returns ready");
+  const Mode wakeBlocked[] = {Mode::Sleep, Mode::Waking, Mode::Preparing, Mode::Listening,
+    Mode::Sending, Mode::Thinking, Mode::Receiving, Mode::Speaking, Mode::Cooldown, Mode::Notice, Mode::Error};
+  bool wakeQuiet = true;
+  for (auto mode : wakeBlocked) {
+    face.state.set(mode, fakeTime); const auto polls = fakeWakePolls; loop();
+    wakeQuiet = wakeQuiet && polls == fakeWakePolls && !fakeMicActive;
+  }
+  check(wakeQuiet, "all non-wait modes stop wake microphone and never poll");
+  face.state.rest(fakeTime); loop();
+  fakeTime += deviceui::State::sleepAfterMs; pcSeen = fakeTime; loop();
+  check(face.state.asleep && !fakeMicActive, "wake polling does not extend auto sleep timeout");
+  fakeWakeAvailable = false; wakeInput.stop(audio);
   resetRuntime();
   check(face.state.mode == Mode::Sleep && !fakeMicActive && fakeMicBegins == 0, "boot sleeps with microphone stopped");
   gesture(60); advance(360);
@@ -71,7 +98,7 @@ int main() {
   gated = gated && !face.state.microphoneAllowed() && face.state.microphoneAllowed(true);
   face.state.set(Mode::Listening, fakeTime); gated = gated && face.state.microphoneAllowed();
   face.state.sleep(fakeTime); gated = gated && !face.state.microphoneAllowed(true);
-  check(gated, "sleep and transaction phases reject microphone entry; wake detection remains disabled in stage 1");
+  check(gated, "sleep and transaction phases reject microphone entry; wake detection requires explicit permission");
 
   resetRuntime(); awake(); inputCount = 320; fakePlaybackMs = 250;
   unsigned iterations = 0; bool quiet = true, spoke = false;
