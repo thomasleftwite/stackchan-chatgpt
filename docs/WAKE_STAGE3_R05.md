@@ -1,5 +1,7 @@
 # 第3段階R05: 短い呼びかけの最低有声時間の整合
 
+現在の登録操作は[R06](WAKE_STAGE3_R06.md)。同じ操作で3回録音し、整合すれば自動保存する。本書の別操作の照合/最終保存確認は旧手順の履歴。
+
 2026-10-19（日本時間）/ R05。対象: AtomS3R + Atomic Voice Base A149、Arduino-ESP32 2.0.17、PlatformIO atoms3r-gemini-device。依存固定版はplatformio.iniを参照。目的: [R04](WAKE_STAGE3_R04.md)で連続取得した呼びかけが有声340msとしてSHORTになった問題を修正する。
 
 ## 変更と根拠

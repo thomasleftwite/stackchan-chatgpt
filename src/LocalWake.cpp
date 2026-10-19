@@ -66,25 +66,45 @@ bool LocalWake::save(const simplevox::MfccFeature& feature) {
   }
   return true;
 }
-void LocalWake::cancelCandidate() { pending_.reset(); verified_=false; }
-bool LocalWake::prepareCandidate(const int16_t* samples,size_t count) {
-  cancelCandidate();
-  if(!raw_ || !samples || count<6400 || count>48000) return false;
-  pending_.reset(engine_.create(samples,static_cast<int>(count)));
-  if(!pending_ || pending_->size()<2 || pending_->size()>186 || pending_->dimension()!=12) { cancelCandidate(); return false; }
-  return true;
+void LocalWake::cancelCandidate() {
+  pending_.reset(); for(auto& repeat:repeats_) repeat.reset();
+  candidateCount_=0; verified_=false;
 }
-bool LocalWake::verifyCandidate(const int16_t* samples,size_t count) {
+std::unique_ptr<simplevox::MfccFeature> LocalWake::createCandidate(const int16_t* samples,size_t count) {
+  if(!raw_ || !samples || count<6400 || count>48000) return nullptr;
+  std::unique_ptr<simplevox::MfccFeature> feature(engine_.create(samples,static_cast<int>(count)));
+  if(!feature || feature->size()<2 || feature->size()>186 || feature->dimension()!=12) return nullptr;
+  return feature;
+}
+bool LocalWake::prepareCandidate(const int16_t* samples,size_t count) {
+  cancelCandidate(); pending_=createCandidate(samples,count);
+  candidateCount_=pending_ ? 1 : 0; return bool(pending_);
+}
+bool LocalWake::collectCandidate(const int16_t* samples,size_t count) {
   verified_=false;
-  if(!pending_ || !samples || count<6400 || count>48000) return false;
-  std::unique_ptr<simplevox::MfccFeature> check(engine_.create(samples,static_cast<int>(count)));
-  if(!check || check->size()<2) return false;
-  verified_=simplevox::calcDTW(*pending_,*check)<config_->wakeThreshold;
-  return verified_;
+  if(!pending_ || candidateCount_<1 || candidateCount_>=3) { cancelCandidate(); return false; }
+  auto feature=createCandidate(samples,count);
+  if(!feature) { cancelCandidate(); return false; }
+  repeats_[candidateCount_-1]=std::move(feature); ++candidateCount_; return true;
+}
+bool LocalWake::validateCandidates() {
+  verified_=false;
+  if(candidateCount_!=3 || !pending_ || !repeats_[0] || !repeats_[1]) return false;
+  const simplevox::MfccFeature* features[]={pending_.get(),repeats_[0].get(),repeats_[1].get()};
+  uint64_t totals[3]{};
+  for(unsigned i=0;i<3;++i) for(unsigned j=i+1;j<3;++j) {
+    const uint32_t distance=simplevox::calcDTW(*features[i],*features[j]);
+    if(distance>=config_->wakeThreshold) return false;
+    totals[i]+=distance; totals[j]+=distance;
+  }
+  unsigned best=0;
+  for(unsigned i=1;i<3;++i) if(totals[i]<totals[best]) best=i;
+  if(best) pending_.swap(repeats_[best-1]);
+  verified_=true; return true;
 }
 bool LocalWake::commitCandidate() {
   if(!pending_ || !verified_ || !save(*pending_)) return false;
-  reference_=std::move(pending_); verified_=false; reset(); return true;
+  reference_=std::move(pending_); cancelCandidate(); reset(); return true;
 }
 bool LocalWake::push(const int16_t* data, bool registration, String& message) {
   if (!raw_) return false;

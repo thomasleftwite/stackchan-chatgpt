@@ -14,7 +14,8 @@ class GeminiWake {
   bool available() const { return available_; }
   bool canEnroll() const { return initialized_ && config_.wakeEnabled; }
   bool prepare(const int16_t* data,size_t count) { return canEnroll() && wake_.prepareCandidate(data,count); }
-  bool verify(const int16_t* data,size_t count) { return canEnroll() && wake_.verifyCandidate(data,count); }
+  bool collect(const int16_t* data,size_t count) { return canEnroll() && wake_.collectCandidate(data,count); }
+  bool validate() { return canEnroll() && wake_.validateCandidates(); }
   bool commit() { const bool ok=wake_.commitCandidate(); if(ok) available_=true; return ok; }
   void cancel() { if(initialized_) wake_.cancelCandidate(); }
   void stop(AudioDevice& audio) {

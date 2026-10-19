@@ -15,6 +15,9 @@ class EnrollmentStatusTests(unittest.TestCase):
         self.assertIsNotNone(STATUS.fullmatch('GEM BUILD enrollment=3'))
         self.assertIsNotNone(STATUS.fullmatch('GEM BUILD enrollment=4'))
         self.assertIsNotNone(STATUS.fullmatch('GEM BUILD enrollment=5'))
+        self.assertIsNotNone(STATUS.fullmatch('GEM BUILD enrollment=6'))
+        for step in ('record1', 'record2', 'record3', 'check', 'save', 'retry'):
+            self.assertIsNotNone(STATUS.fullmatch('GEM ENROLL STEP ' + step))
         self.assertIsNotNone(STATUS.fullmatch('GEM ENROLL STEP verify'))
         self.assertIsNotNone(STATUS.fullmatch('GEM ENROLL AUDIO samples=9600 voiced=3200 ms=600'))
 
@@ -24,6 +27,7 @@ class EnrollmentStatusTests(unittest.TestCase):
                       'GEM ENROLL CAL rms=160000 threshold=4800 ms=1100 gap=700',
                       'GEM BUILD enrollment=3 extra=data',
                       'GEM ENROLL STEP arbitrary-data',
+                      'GEM ENROLL STEP record4',
                       'GEM ENROLL AUDIO samples=100000 voiced=3200 ms=600'):
             with self.subTest(value=value):
                 self.assertIsNone(STATUS.fullmatch(value))

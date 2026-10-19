@@ -24,5 +24,8 @@ struct MfccEngine {
     auto* f=new MfccFeature; f->coefficients.resize(120);std::memcpy(f->coefficients.data(),disk[name].data()+9,240);return f;
   }
 };
-inline uint32_t calcDTW(const MfccFeature& a,const MfccFeature& b) { return a.coefficients==b.coefficients ? 0 : 1000; }
+inline uint32_t calcDTW(const MfccFeature& a,const MfccFeature& b) {
+  const int difference=int(a.coefficients[0])-int(b.coefficients[0]);
+  return static_cast<uint32_t>(difference<0 ? -difference : difference);
+}
 }
