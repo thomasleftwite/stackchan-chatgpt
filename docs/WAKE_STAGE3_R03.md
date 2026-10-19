@@ -30,3 +30,17 @@ R02で無言試験1回はrms=94/threshold=750/gap=729ms、NO_SPEECHだった。�
 候補.pio/firmware-snapshots/gemini-face-stage3-r03.bin、1,469,904 bytes、SHA256 9FAC69EE6ADD202F94AC1E0FDCB3914FB89B193F47C1FA28679D9B239C297301。R01/R02の候補を保持。RAM使用量57,816 bytes。
 
 COM4のアプリ0x10000のみへ書込み成功。消去範囲0x10000〜0x176fff、Hash of data verified、終了コード0。状態照会でGEM BUILD enrollment=3、stage=3/Sleep/mic=0、PC/Wi-Fi未設定、CAL/result NONEを確認。自動リセット後に通常起動した。証跡.pio/device-check/face-stage3-r03-flash-20261019-r01.json、face-stage3-r03-boot-20261019-r01.json。次は物理操作による無言試験で、短い表示の読取りは利用者へ求めず、後から数値を照会する。証跡.pio/device-check/face-stage3-r03-quiet-20261019-r01.json。
+
+## R03無言試験の結果と監視の継続
+
+利用者が無言で待ち終わったと回答。CAL rms=221 threshold=750 ms=1631 gap=729、ENROLL result=NO_SPEECHを取得。Learning call相当のmode=15/mic=1へ進み、無発話でSleep/mic=0へ戻った。0.7秒待ちと準備判定通過を実機で確認した。登録/照合/保存はまだ行っていない。R02の無言試験も通っていたため、実際の発話を伴う登録での再発有無は別途確認する。
+
+続く監視を2回重複起動し、両方ともCOM4を開けずusb_errorとなった。前回の監視セッションが引き続きCOM4を使用中だったことを確認し、既存監視をそのまま継続した。この2回をUSB接触不良の再発証拠には使わない。face-stage3-r03-registration-20261019-r01/r02.jsonは、この起動失敗の記録で登録試験成功の記録ではない。継続監視の実データはface-stage3-r03-quiet-20261019-r01.jsonへ追記される。
+
+監視は最大10分で、途中にもJSONを更新する。reason=observedだけでプロセス終了とは判断せず、起動時のセッションの完了を確認してから次を起動する。後続の登録手順では開始音停止後約3秒無言で待ち、録音案内が出てから発話し、Try your call以外なら次の操作へ進まない。
+
+## R03の最初の呼びかけ試験
+
+開始音停止後約3秒無言で待ってから発話する手順を案内。CAL rms=215 threshold=750 ms=1631 gap=729で環境音測定を通過し、Learning call/mic=1へ進んだ後、ENROLL result=SHORTでSleep/mic=0へ戻った。利用者も途中でSleepingへ戻ったと回答。照合画面・保存には到達していない。証跡は上記の継続監視JSON内の303,719〜312,750ms。
+
+SHORTは録音データ内で有効な声と判定されたサンプルが6,400（16kHzで0.4秒分）未満だったことを意味し、実際に話した時間そのものとは区別する。開始タイミング/発話速度・音量/取得方式の影響は未確定。判定値と0.7秒待ちは変更せず、まず普段の声量で呼びかけを少しゆっくり約1秒かけて話す1回目の録音だけを再確認する。Try your callへ進まない場合、照合・保存の追加操作は行わない。
