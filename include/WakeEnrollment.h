@@ -8,6 +8,10 @@ class WakeEnrollmentCapture {
   static constexpr size_t frame = 320, capacity = 48000;
   enum class Result { Calibration, Waiting, Recording, Ready, Empty, Short, Long, Noisy, Clipped, Invalid };
   WakeEnrollmentCapture(int16_t* destination, size_t size) : data_(destination), size_(size) { ambient_.reset(); }
+  WakeEnrollmentCapture(int16_t* destination, size_t size, const AmbientGate& ambient)
+      : data_(destination), size_(size), ambient_(ambient) {
+    result_=ambient_.usable() ? Result::Waiting : Result::Noisy;
+  }
   Result push(const int16_t* samples, size_t n) {
     if (terminal()) return result_;
     if (!samples || n != frame || !data_ || size_ < capacity) return result_ = Result::Invalid;

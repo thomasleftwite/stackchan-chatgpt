@@ -4,7 +4,7 @@
 namespace deviceui {
 enum class Mode { Boot, Connecting, Sleep, Waking, WakeWait, Armed, Preparing,
                   Listening, Sending, Thinking, Receiving, Speaking, Cooldown,
-                  Notice, Error, Enrolling, Verify, Setup };
+                  Notice, Error, Enrolling, Verify, Setup, CueWait };
 enum class Link { Unconfigured, WifiOffline, PcOffline, Ready };
 
 // Runtime also checks links before enabling wake input in WakeWait.
@@ -20,7 +20,7 @@ class State {
   void rest(uint32_t now) { activity_ = now; set(asleep ? Mode::Sleep : Mode::WakeWait, now); }
   bool mayStart() const { return !asleep && (mode == Mode::WakeWait || mode == Mode::Armed); }
   bool microphoneAllowed(bool wakeEnabled = false) const {
-    return !asleep && (mode == Mode::Preparing || mode == Mode::Listening ||
+    return !asleep && (mode == Mode::Preparing || mode == Mode::CueWait || mode == Mode::Listening ||
                       mode == Mode::Enrolling || mode == Mode::Verify ||
                       (wakeEnabled && mode == Mode::WakeWait));
   }
@@ -52,6 +52,7 @@ inline const char* title(Mode mode) {
     case Mode::Enrolling: return "Learning call";
     case Mode::Verify: return "Try your call";
     case Mode::Setup: return "Settings";
+    case Mode::CueWait: return "Get ready";
   }
   return "";
 }

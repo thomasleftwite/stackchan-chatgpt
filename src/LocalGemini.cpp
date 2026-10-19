@@ -40,14 +40,22 @@ char lastEnrollmentCal[128] = "GEM ENROLL CAL NONE";
 char lastEnrollmentResult[64] = "GEM ENROLL result=NONE";
 char lastEnrollmentStep[48] = "GEM ENROLL STEP none";
 char lastEnrollmentAudio[128] = "GEM ENROLL AUDIO NONE";
+char lastSpeechTiming[96] = "GEM CAPTURE TIMING NONE";
 std::atomic<size_t> captured{0};
 std::atomic<bool> capturing{false}, captureFault{false};
+std::atomic<bool> settling{false};
+std::atomic<uint32_t> settlingStarted{0};
+std::atomic<size_t> preSpeechSamples{0};
 size_t queued = 0; // Written only by setup before capture, then by the mic callback.
 void released(void*, void* data, size_t length) {
   const size_t count = captured.load(std::memory_order_relaxed);
   if (length != UtteranceWindow::frame || data != input + count || count + length > captureCapacity) {
     captureFault.store(true); return;
   }
+  // Stamp completed settling frames in the producer. A delayed UI update at
+  // 700ms must not discard speech that has already arrived after the gate.
+  if(settling.load(std::memory_order_acquire) && millis()-settlingStarted.load()<700)
+    preSpeechSamples.store(count+length,std::memory_order_release);
   // This callback runs in the mic task: queue the successor before returning,
   // so the driver carries its DMA tail across the two requests without a gap.
   if (capturing.load() && queued < captureCapacity) {
@@ -166,56 +174,109 @@ bool transport() {
   Serial.println(lastResult); if (!ok) Serial.printf("GEM FAULT code=%u\n", fault);
   return ok;
 }
+void stopSpeechCapture() {
+  capturing.store(false); audio.stop(); settling.store(false); M5.Mic.setBufferReleaseCallback(nullptr,nullptr);
+}
+bool startSpeechCapture(bool afterCue=false,uint32_t cueEnded=0) {
+  if(!audio.listen(16000)) return false;
+  captured.store(0); captureFault.store(false); preSpeechSamples.store(0);
+  settlingStarted.store(cueEnded); settling.store(afterCue); queued=UtteranceWindow::frame; capturing.store(true);
+  M5.Mic.setBufferReleaseCallback(nullptr,released);
+  return M5.Mic.record(input,UtteranceWindow::frame,16000,false);
+}
+bool captureCancelled() {
+  M5.update();
+  // Enrollment already rejects commands other than INFO/PING/STOP. A normal
+  // question leaves USB commands queued to avoid recursive PROBE dispatch.
+  if(enrollmentActive) pollCommands();
+  updateUi(); return M5.BtnA.wasPressed();
+}
+struct SpeechPreparation {
+  AmbientGate ambient;
+  size_t offset=0;
+  uint32_t ms=0,gap=0,started=0;
+};
+const char* prepareSpeechCapture(SpeechPreparation& prep) {
+  strlcpy(lastSpeechTiming,"GEM CAPTURE TIMING NONE",sizeof(lastSpeechTiming));
+  prep.ambient.reset(); const auto preparing=millis();
+  if(!startSpeechCapture()) { stopSpeechCapture(); return "IO"; }
+  size_t processed=0; const char* failure=nullptr;
+  while(!prep.ambient.ready() && millis()-preparing<3000) {
+    if(captureCancelled()) { failure="CANCEL"; break; }
+    if(captureFault.load()) { failure="IO"; break; }
+    const size_t available=captured.load(std::memory_order_acquire);
+    while(processed+UtteranceWindow::frame<=available && !prep.ambient.ready()) {
+      prep.ambient.push(input+processed,UtteranceWindow::frame); processed+=UtteranceWindow::frame;
+    }
+    delay(2);
+  }
+  prep.ms=millis()-preparing; stopSpeechCapture();
+  // Preparation audio never reaches the call model or API input.
+  memset(input,0,captureCapacity*2);
+  if(failure) return failure;
+  if(!prep.ambient.ready()) return "IO";
+  if(!prep.ambient.usable()) return "NOISY";
+  face.set(Mode::CueWait,"Beep then wait 0.7s");
+  if(!audio.cue()) { stopSpeechCapture(); return "IO"; }
+  const auto cueEnded=millis();
+  if(!startSpeechCapture(true,cueEnded)) { stopSpeechCapture(); return "IO"; }
+  prep.started=millis();
+  // Re-start/warm the shared codec inside the user's 700ms pause. No second
+  // ambient calibration follows the cue. Completed pre-gate frames are dropped.
+  while(millis()-cueEnded<700) {
+    if(captureCancelled()) { stopSpeechCapture(); return "CANCEL"; }
+    if(captureFault.load()) { stopSpeechCapture(); return "IO"; }
+    delay(2);
+  }
+  prep.gap=millis()-cueEnded;
+  settling.store(false);
+  prep.offset=preSpeechSamples.load(std::memory_order_acquire);
+  // Require at least the existing 400ms microphone warmup by the gate. A failed
+  // restart must fail closed instead of unexpectedly accepting speech much later.
+  if(prep.offset<6400 || captureFault.load()) { stopSpeechCapture(); return "IO"; }
+  snprintf(lastSpeechTiming,sizeof(lastSpeechTiming),"GEM CAPTURE TIMING prep=%lu gap=%lu",
+    static_cast<unsigned long>(prep.ms),static_cast<unsigned long>(prep.gap));
+  Serial.println(lastSpeechTiming); return "READY";
+}
 bool recordQuestion() {
   strlcpy(lastCapture, "GEM CAPTURE FAIL", sizeof(lastCapture));
   if (!face.state.mayStart()) return false;
   face.set(Mode::Preparing, "Please stay quiet");
   if (!face.state.microphoneAllowed()) return false;
-  if (!audio.cue() || !audio.listen(16000)) { Serial.println("GEM CAPTURE FAIL"); return false; }
-  captured.store(0); captureFault.store(false); queued = UtteranceWindow::frame; capturing.store(true);
-  M5.Mic.setBufferReleaseCallback(nullptr, released);
-  UtteranceWindow window; AmbientGate ambient; ambient.reset(); bool calibrated = false;
-  face.set(Mode::Preparing, "Please stay quiet");
-  const auto started = millis();
-  bool queuedFirst = M5.Mic.record(input, UtteranceWindow::frame, 16000, false), cancelled = false;
-  size_t processed = 0;
-  while (queuedFirst && !captureFault.load() && (!calibrated || !window.terminal()) && millis() - started < 12500) {
-    const size_t available = captured.load(std::memory_order_acquire);
-    while (processed + UtteranceWindow::frame <= available && (!calibrated || !window.terminal())) {
-      if (!calibrated) {
-        ambient.push(input + processed, UtteranceWindow::frame);
-        if (ambient.ready()) {
-          calibrated = true;
-          if (!ambient.usable()) break;
-          window.reset(ambient.threshold());
-          Serial.printf("GEM VAD CALIBRATED rms=%lu threshold=%lu\n", static_cast<unsigned long>(ambient.noise()), static_cast<unsigned long>(ambient.threshold()));
-          face.set(Mode::Listening, "Speak now (max 5s)");
-        }
-      } else {
-        window.push(input + processed, UtteranceWindow::frame);
-        uint64_t frameEnergy = 0;
-        for (size_t i = 0; i < UtteranceWindow::frame; ++i) {
-          const int32_t value = input[processed + i]; frameEnergy += static_cast<int64_t>(value) * value;
-        }
-        face.level(static_cast<unsigned>(sqrt(static_cast<double>(frameEnergy) / UtteranceWindow::frame)) / 400);
-      }
-      processed += UtteranceWindow::frame;
-    }
-    if (calibrated && !ambient.usable()) break;
-    M5.update(); if (M5.BtnA.wasPressed()) { cancelled = true; break; }
-    updateUi(); delay(1);
+  SpeechPreparation prep;const char* prepared=prepareSpeechCapture(prep);
+  if(strcmp(prepared,"READY")) {
+    const bool cancelled=!strcmp(prepared,"CANCEL"), noisy=!strcmp(prepared,"NOISY");
+    strlcpy(lastCapture,cancelled ? "GEM CAPTURE CANCEL" : noisy ? "GEM CAPTURE NOISY" : "GEM CAPTURE FAIL",sizeof(lastCapture));
+    Serial.println(lastCapture);face.set(Mode::Notice,cancelled ? "Cancelled" : noisy ? "Too noisy" : "Microphone failed");return false;
   }
-  capturing.store(false); audio.stop(); M5.Mic.setBufferReleaseCallback(nullptr, nullptr);
-  const size_t completed = captured.load(std::memory_order_acquire);
-  if (cancelled) { strlcpy(lastCapture, "GEM CAPTURE CANCEL", sizeof(lastCapture)); Serial.println(lastCapture); face.set(Mode::Notice, "Cancelled"); return false; }
-  if (calibrated && !ambient.usable()) { strlcpy(lastCapture, "GEM CAPTURE NOISY", sizeof(lastCapture)); Serial.println(lastCapture); face.set(Mode::Notice, "Too noisy"); return false; }
-  if (!queuedFirst || captureFault.load() || !calibrated || !window.terminal()) { Serial.println("GEM CAPTURE FAIL"); return false; }
-  if (!window.samples()) {
-    snprintf(lastCapture, sizeof(lastCapture), "GEM CAPTURE EMPTY ms=%lu captured=%u", static_cast<unsigned long>(millis() - started), static_cast<unsigned>(completed));
-    Serial.println(lastCapture); face.set(Mode::Notice, "No speech"); return false;
+  UtteranceWindow window;window.reset(prep.ambient.threshold());
+  Serial.printf("GEM VAD CALIBRATED rms=%lu threshold=%lu\n",static_cast<unsigned long>(prep.ambient.noise()),static_cast<unsigned long>(prep.ambient.threshold()));
+  face.set(Mode::Listening,"Speak now (max 5s)");
+  const auto started=prep.started;size_t processed=prep.offset;bool cancelled=false;
+  while(!captureFault.load() && !window.terminal() && millis()-started<12500) {
+    if(captureCancelled()) { cancelled=true;break; }
+    const size_t available=captured.load(std::memory_order_acquire);
+    while(processed+UtteranceWindow::frame<=available && !window.terminal()) {
+      window.push(input+processed,UtteranceWindow::frame);
+      uint64_t frameEnergy=0;
+      for(size_t i=0;i<UtteranceWindow::frame;++i) {
+        const int32_t value=input[processed+i];frameEnergy+=static_cast<int64_t>(value)*value;
+      }
+      face.level(static_cast<unsigned>(sqrt(static_cast<double>(frameEnergy)/UtteranceWindow::frame))/400);
+      processed+=UtteranceWindow::frame;
+    }
+    delay(2);
+  }
+  stopSpeechCapture();
+  const size_t completed=captured.load(std::memory_order_acquire);
+  if(cancelled) { strlcpy(lastCapture,"GEM CAPTURE CANCEL",sizeof(lastCapture));Serial.println(lastCapture);face.set(Mode::Notice,"Cancelled");return false; }
+  if(captureFault.load() || !window.terminal()) { Serial.println(lastCapture);return false; }
+  if(!window.samples()) {
+    snprintf(lastCapture,sizeof(lastCapture),"GEM CAPTURE EMPTY ms=%lu captured=%u",static_cast<unsigned long>(millis()-started),static_cast<unsigned>(completed));
+    Serial.println(lastCapture);face.set(Mode::Notice,"No speech");return false;
   }
   inputCount = window.samples();
-  const size_t start = window.start() + 16000; // Discard the one-second calibration.
+  const size_t start = window.start() + prep.offset; // Exclude the post-cue settling input.
   if (inputCount > maxInput || start + inputCount > completed) { Serial.println("GEM CAPTURE FAIL"); return false; }
   memmove(input, input + start, inputCount * 2);
   memset(input + inputCount, 0, (captureCapacity - inputCount) * 2);
@@ -268,63 +329,46 @@ bool enrollmentChoice(const char* note, Mode mode=Mode::Setup) {
 const char* enrollmentCapture(Mode mode, size_t& count, unsigned sample=1) {
   strlcpy(lastEnrollmentCal,"GEM ENROLL CAL NONE",sizeof(lastEnrollmentCal));
   strlcpy(lastEnrollmentAudio,"GEM ENROLL AUDIO NONE",sizeof(lastEnrollmentAudio));
-  char note[32]; snprintf(note,sizeof(note),"%u/3 Stay quiet",sample);
-  count=0; wipe(); face.set(Mode::Preparing,note);
-  if(!audio.cue()) { audio.stop(); return "IO"; }
-  // Let speaker/room decay before enabling the mic; the existing mic warmup remains separate.
-  const auto cueEnded=millis();
-  while(millis()-cueEnded<700) {
-    M5.update(); pollCommands(); updateUi();
-    if(M5.BtnA.wasPressed()) { audio.stop(); return "CANCEL"; }
-    delay(5);
+  char note[32];snprintf(note,sizeof(note),"%u/3 Stay quiet",sample);
+  count=0;wipe();face.set(Mode::Preparing,note);
+  SpeechPreparation prep;const char* prepared=prepareSpeechCapture(prep);
+  snprintf(lastEnrollmentCal,sizeof(lastEnrollmentCal),"GEM ENROLL CAL rms=%lu threshold=%lu ms=%lu gap=%lu",
+    static_cast<unsigned long>(prep.ambient.noise()),static_cast<unsigned long>(prep.ambient.threshold()),
+    static_cast<unsigned long>(prep.ms),static_cast<unsigned long>(prep.gap));
+  Serial.println(lastEnrollmentCal);
+  if(strcmp(prepared,"READY")) {
+    strlcpy(lastEnrollmentAudio,"GEM ENROLL AUDIO samples=0 voiced=0 ms=0",sizeof(lastEnrollmentAudio));
+    Serial.println(lastEnrollmentAudio);return prepared;
   }
-  if(!audio.listen(16000)) { audio.stop(); return "IO"; }
-  const auto quietGap=millis()-cueEnded;
-  WakeEnrollmentCapture window(input,captureCapacity);
-  captured.store(0); captureFault.store(false); queued=UtteranceWindow::frame; capturing.store(true);
-  M5.Mic.setBufferReleaseCallback(nullptr,released);
-  const auto started=millis();
-  const bool first=M5.Mic.record(input,UtteranceWindow::frame,16000,false);
-  size_t processed=0; bool cancelled=false;
-  while(first && !captureFault.load() && !window.terminal() && millis()-started<10000) {
-    M5.update(); pollCommands(); updateUi();
-    if(M5.BtnA.wasPressed()) { cancelled=true; break; }
+  WakeEnrollmentCapture window(input,captureCapacity,prep.ambient);
+  snprintf(note,sizeof(note),"%u/3 Say same call",sample);face.set(mode,note);
+  size_t processed=prep.offset;bool cancelled=false;
+  while(!captureFault.load() && !window.terminal() && millis()-prep.started<10000) {
+    if(captureCancelled()) { cancelled=true;break; }
     const size_t available=captured.load(std::memory_order_acquire);
     while(processed+UtteranceWindow::frame<=available && !window.terminal()) {
-      // The compacted call is always >=16000 samples behind unprocessed DMA input:
-      // calibration consumes that headroom before the window writes any call data.
-      const auto before=window.result(); window.push(input+processed,UtteranceWindow::frame);
-      processed+=UtteranceWindow::frame;
-      if(before==WakeEnrollmentCapture::Result::Calibration &&
-         (window.result()==WakeEnrollmentCapture::Result::Waiting || window.result()==WakeEnrollmentCapture::Result::Noisy)) {
-        snprintf(lastEnrollmentCal,sizeof(lastEnrollmentCal),"GEM ENROLL CAL rms=%lu threshold=%lu ms=%lu gap=%lu",
-          static_cast<unsigned long>(window.noiseRms()), static_cast<unsigned long>(window.voiceThreshold()),
-          static_cast<unsigned long>(millis()-started), static_cast<unsigned long>(quietGap));
-        Serial.println(lastEnrollmentCal);
-        if(window.result()==WakeEnrollmentCapture::Result::Waiting) {
-          snprintf(note,sizeof(note),"%u/3 Say same call",sample); face.set(mode,note);
-        }
-      }
+      // The discarded restart input provides >=6400 samples of headroom, so
+      // compaction cannot overwrite unfinished or future DMA input.
+      window.push(input+processed,UtteranceWindow::frame);processed+=UtteranceWindow::frame;
     }
     delay(2);
   }
-  capturing.store(false); audio.stop(); M5.Mic.setBufferReleaseCallback(nullptr,nullptr);
-  count=window.samples();
+  stopSpeechCapture();count=window.samples();
   snprintf(lastEnrollmentAudio,sizeof(lastEnrollmentAudio),"GEM ENROLL AUDIO samples=%lu voiced=%lu ms=%lu",
     static_cast<unsigned long>(window.recordedSamples()),static_cast<unsigned long>(window.voicedSamples()),
-    static_cast<unsigned long>(millis()-started));
+    static_cast<unsigned long>(millis()-prep.started));
   Serial.println(lastEnrollmentAudio);
-  if(cancelled) return "CANCEL";
-  if(!first || captureFault.load()) return "IO";
+  if(cancelled)return "CANCEL";
+  if(captureFault.load())return "IO";
   using R=WakeEnrollmentCapture::Result;
   switch(window.result()) {
-    case R::Ready: return "READY";
-    case R::Empty: return "NO_SPEECH";
-    case R::Short: return "SHORT";
-    case R::Long: return "LONG";
-    case R::Noisy: return "NOISY";
-    case R::Clipped: return "CLIPPED";
-    default: return "TIMEOUT";
+    case R::Ready:return "READY";
+    case R::Empty:return "NO_SPEECH";
+    case R::Short:return "SHORT";
+    case R::Long:return "LONG";
+    case R::Noisy:return "NOISY";
+    case R::Clipped:return "CLIPPED";
+    default:return "TIMEOUT";
   }
 }
 void enrollmentStep(const char* step) {
@@ -402,12 +446,12 @@ void dispatch() {
       if (!wasOnline) updateUi();
     }
     Serial.println("GEM READY v=2 input=16000 output=24000 mono=1 bits=16");
-    Serial.println("GEM BUILD enrollment=6");
+    Serial.println("GEM BUILD enrollment=7");
     Serial.printf("GEM STATE configured=%u wifi=%u pc=%u\n", configured ? 1 : 0, WiFi.status() == WL_CONNECTED ? 1 : 0, pcReady() ? 1 : 0);
     Serial.printf("GEM UI stage=3 mode=%u asleep=%u mic=%u\n", static_cast<unsigned>(face.state.mode), face.state.asleep ? 1 : 0, M5.Mic.isRunning() ? 1 : 0);
     Serial.println(lastCapture); Serial.println(lastResult);
     Serial.println(lastEnrollmentCal); Serial.println(lastEnrollmentResult);
-    Serial.println(lastEnrollmentStep); Serial.println(lastEnrollmentAudio);
+    Serial.println(lastEnrollmentStep); Serial.println(lastEnrollmentAudio); Serial.println(lastSpeechTiming);
   }
   else if (strncmp(command, "GEM CONFIG ", 11) == 0) configure();
   else if (strcmp(command, "GEM PROBE") == 0) run(false);

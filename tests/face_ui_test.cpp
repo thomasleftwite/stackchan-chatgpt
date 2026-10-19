@@ -53,10 +53,10 @@ int main() {
   check(fakeMicActive, "link recovery restarts local detection");
   fakeWakeMatch = true;
   const auto cues = fakeBeeps; loop();
-  check(fakeBeeps == cues + 1 && face.state.mode == Mode::WakeWait && !fakeMicActive,
-        "matched call stops detection then cues question and returns ready");
+  check(fakeBeeps == cues && face.state.mode == Mode::WakeWait && !fakeMicActive,
+        "matched call handles preparation failure without a false start cue and returns ready");
   const Mode wakeBlocked[] = {Mode::Sleep, Mode::Waking, Mode::Preparing, Mode::Listening,
-    Mode::Sending, Mode::Thinking, Mode::Receiving, Mode::Speaking, Mode::Cooldown, Mode::Notice, Mode::Error};
+    Mode::Sending, Mode::Thinking, Mode::Receiving, Mode::Speaking, Mode::Cooldown, Mode::Notice, Mode::Error, Mode::CueWait};
   bool wakeQuiet = true;
   for (auto mode : wakeBlocked) {
     face.state.set(mode, fakeTime); const auto polls = fakeWakePolls; loop();
@@ -137,9 +137,9 @@ int main() {
 
   const Mode modes[] = {Mode::Boot, Mode::Connecting, Mode::Sleep, Mode::Waking, Mode::WakeWait,
     Mode::Armed, Mode::Preparing, Mode::Listening, Mode::Sending, Mode::Thinking, Mode::Receiving,
-    Mode::Speaking, Mode::Cooldown, Mode::Notice, Mode::Error, Mode::Enrolling, Mode::Verify, Mode::Setup};
+    Mode::Speaking, Mode::Cooldown, Mode::Notice, Mode::Error, Mode::Enrolling, Mode::Verify, Mode::Setup, Mode::CueWait};
   std::ofstream preview("face-mode-preview.svg");
-  preview << "<svg xmlns='http://www.w3.org/2000/svg' width='768' height='384' viewBox='0 0 768 384'>";
+  preview << "<svg xmlns='http://www.w3.org/2000/svg' width='768' height='512' viewBox='0 0 768 512'>";
   unsigned index = 0;
   for (auto mode : modes) {
     fakeTime = 1550; face.state.asleep = mode == Mode::Sleep;
@@ -150,7 +150,7 @@ int main() {
     ++index;
   }
   preview << "</svg>"; preview.close();
-  check(preview.good(), "all eighteen modes render from actual drawing code to an offline SVG preview");
+  check(preview.good(), "all nineteen modes render from actual drawing code to an offline SVG preview");
   std::free(input); std::free(output); input = output = nullptr;
   std::cout << checks << " checks, " << failures << " failures\n";
   return failures ? 1 : 0;

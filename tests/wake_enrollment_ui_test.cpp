@@ -12,7 +12,13 @@
 #endif
 #include <iostream>
 unsigned checks=0,failures=0;
-std::vector<uint32_t> observedGaps;
+std::vector<uint32_t> speechGaps() {
+  std::vector<uint32_t> gaps;
+  for(const auto& line:Serial.messages) { unsigned prep=0,gap=0;
+    if(std::sscanf(line.c_str(),"GEM CAPTURE TIMING prep=%u gap=%u",&prep,&gap)==2) gaps.push_back(gap);
+  }
+  return gaps;
+}
 void check(bool ok,const char* name) { ++checks;if(!ok)++failures;std::cout<<(ok?"PASS ":"FAIL ")<<name<<'\n'; }
 bool shown(const char* text) {
   return std::any_of(M5.Display.history.begin(),M5.Display.history.end(),[text](const std::string& value){return value.find(text)!=std::string::npos;});
@@ -27,7 +33,7 @@ void reset() {
   fakeButtonSchedule=[](uint32_t){return false;};M5.BtnA={};M5.Display={};face.state={};
   configured=pcOnline=false;WiFi.state=0;consumed=true;enrollmentActive=false;
   fakeWakeAvailable=true;fakeEnrollCommits=0;fakeEnrollPending=fakeEnrollVerified=false;
-  fakeEnrollAllowed=fakeEnrollMatch=fakeEnrollSave=true;fakeEnrollSamples=fakeEnrollValidations=0;observedGaps.clear();setup();
+  fakeEnrollAllowed=fakeEnrollMatch=fakeEnrollSave=true;fakeEnrollSamples=fakeEnrollValidations=0;Serial.messages.clear();setup();
 }
 void interactions(bool entry,int cancelAt=0,bool retryOnce=false) {
   const auto began=fakeTime;
@@ -46,24 +52,55 @@ void interactions(bool entry,int cancelAt=0,bool retryOnce=false) {
     return now-since>=50 && now-since<(cancelAt==stage?2200u:90u);
   };
 }
-void cleanAudio() {
-  fakeRecordAction=[frame=unsigned(0),lastBegin=unsigned(0)](int16_t* data,size_t n,uint32_t rate) mutable {
-    if(n!=320 || rate!=16000) return false;
-    if(lastBegin!=fakeMicBegins) { lastBegin=fakeMicBegins;observedGaps.push_back(fakeMicBeganAt-fakeCueEndedAt); }
-    const auto slot=frame++%100;const int amplitude=slot>=50 && slot<80 ? 2400:0;
+void cleanAudio(int quiet=0,bool transient=false) {
+  fakeRecordAction=[quiet,transient](int16_t* data,size_t n,uint32_t rate) {
+    if(n!=320 || rate!=16000)return false;
+    const uint32_t since=fakeTime-fakeCueEndedAt;
+    const int amplitude=fakeBeeps && transient && since<650 ? 30000 : fakeBeeps && since>700 && since<=1300 ? 2400:quiet;
     for(size_t i=0;i<n;++i)data[i]=static_cast<int16_t>(i%2?amplitude:-amplitude);
     return true;
   };
 }
 int main() {
+  reset();face.state.wake(fakeTime);face.set(Mode::CueWait,"Beep then wait 0.7s");
+  check(face.state.microphoneAllowed() && !face.state.mayStart() && shown("Get ready") && shown("Beep then wait 0.7s"),
+    "cue pause has a ready prompt distinct from preparation and cannot start another question");
+  reset();face.state.wake(fakeTime);fakeCueDurationMs=500;cleanAudio(100);
+  size_t naturalCount=0;
+  check(!strcmp(enrollmentCapture(Mode::Enrolling,naturalCount),"READY") && naturalCount>=9600,
+    "enrollment accepts a natural 600ms call starting 700ms after the completed beep");
+  reset();face.state.wake(fakeTime);face.state.set(Mode::WakeWait,fakeTime);fakeCueDurationMs=500;cleanAudio(100);
+  check(recordQuestion() && inputCount>=9600,
+    "normal question accepts speech starting 700ms after the completed beep without a later calibration");
+  reset();face.state.wake(fakeTime);fakeCueDurationMs=500;cleanAudio(100,true);
+  naturalCount=0;const auto transientResult=enrollmentCapture(Mode::Enrolling,naturalCount);
+  check(!strcmp(transientResult,"READY") && naturalCount>=9600 &&
+    std::all_of(input,input+naturalCount,[](int16_t value){return value>=-2400 && value<=2400;}),
+    "post-beep startup transients are excluded from the enrollment model without dropping the call");
+  reset();face.state.wake(fakeTime);face.state.set(Mode::WakeWait,fakeTime);fakeCueDurationMs=500;cleanAudio(100,true);
+  check(recordQuestion() && inputCount>=9600 &&
+    std::all_of(input,input+inputCount,[](int16_t value){return value>=-2400 && value<=2400;}),
+    "post-beep startup transients cannot reach the normal question API input");
+  reset();face.state.wake(fakeTime);fakeCueDurationMs=500;cleanAudio();
+  fakeButtonSchedule=[](uint32_t now){return fakeBeeps && now-fakeCueEndedAt>=300;};
+  naturalCount=0;
+  check(!strcmp(enrollmentCapture(Mode::Enrolling,naturalCount),"CANCEL") && fakeBeeps==1 && !naturalCount &&
+    !fakeMicActive && !M5.Mic.onRelease && M5.Mic.pending.empty() && !capturing.load(),
+    "cancel in the post-beep pause shuts down restarted microphone and pending callbacks");
+  reset();face.state.wake(fakeTime);fakeCueDurationMs=500;cleanAudio();
+  const auto healthyAudio=fakeRecordAction;
+  fakeRecordAction=[healthyAudio](int16_t* data,size_t n,uint32_t rate){return !fakeBeeps && healthyAudio(data,n,rate);};
+  naturalCount=0;
+  check(!strcmp(enrollmentCapture(Mode::Enrolling,naturalCount),"IO") && fakeBeeps==1 && !naturalCount && !fakeMicActive,
+    "a stalled post-beep microphone restart fails at the 700ms gate instead of accepting speech late");
   reset();cleanAudio();face.state.wake(fakeTime);size_t continuousCount=0;
   const auto continuousResult=enrollmentCapture(Mode::Enrolling,continuousCount);
   bool continuousData=true;
-  for(size_t i=0;i<11200;++i) {
-    const int expected=i<9600 ? (i%2 ? 2400 : -2400) : 0;
+  for(size_t i=0;i<11520;++i) {
+    const int expected=i>=320 && i<9920 ? (i%2 ? 2400 : -2400) : 0;
     if(input[i]!=expected)continuousData=false;
   }
-  check(!strcmp(continuousResult,"READY") && continuousCount==11200 && continuousData && fakeCallbackQueues>50 && !fakeCaptureGaps,
+  check(!strcmp(continuousResult,"READY") && continuousCount==11520 && continuousData && fakeCallbackQueues>50 && !fakeCaptureGaps,
     "enrollment queues successor buffers at completion and preserves every speech sample");
   reset();interactions(false);Serial.messages.clear();
   fakeRecordAction=[](int16_t* data,size_t n,uint32_t){
@@ -80,17 +117,18 @@ int main() {
   const bool replayedAudio=std::any_of(Serial.messages.begin(),Serial.messages.end(),[](const std::string& line){
     return line.find("GEM ENROLL AUDIO samples=0 voiced=0 ")==0;
   });
-  check(replayedCal && replayedResult && replayedStep && replayedAudio,"state query replays calibration stage and sample counts after transient logs are missed");
+  check(replayedCal && replayedResult && replayedStep && replayedAudio && !fakeBeeps,
+    "preparation noise rejects enrollment before any start beep and retained status can be queried");
   reset();cleanAudio();fakeCueDurationMs=500;
   face.state.wake(fakeTime);size_t settlingCount=0;
   const auto settlingResult=enrollmentCapture(Mode::Enrolling,settlingCount);
-  check(!strcmp(settlingResult,"READY") && settlingCount>0 && fakeMicBeganAt>=fakeCueEndedAt+700,
-    "enrollment microphone starts only after cue completes and a 700ms quiet gap");
+  check(!strcmp(settlingResult,"READY") && settlingCount>0 && speechGaps().size()==1 && speechGaps()[0]>=700 && speechGaps()[0]<=702,
+    "enrollment opens the speech gate 700ms after the cue with microphone startup inside that pause");
   reset();cleanAudio();fakeCueDurationMs=500;face.state.wake(fakeTime);
   fakeButtonSchedule=[pressed=fakeTime+600](uint32_t now){return now>=pressed;};
   size_t cancelledCount=0;
-  check(!strcmp(enrollmentCapture(Mode::Enrolling,cancelledCount),"CANCEL") && !fakeMicBegins && !cancelledCount,
-    "cancel during the speaker settling gap never starts microphone recording");
+  check(!strcmp(enrollmentCapture(Mode::Enrolling,cancelledCount),"CANCEL") && !fakeBeeps && !cancelledCount && !fakeMicActive,
+    "cancel during preparation never plays the start cue or retains input");
   reset();cleanAudio();face.state.wake(fakeTime);
   fakeButtonSchedule=[pressed=fakeTime+900](uint32_t now){return now>=pressed;};
   check(!strcmp(enrollmentCapture(Mode::Enrolling,cancelledCount),"CANCEL") && !fakeMicActive &&
@@ -98,9 +136,10 @@ int main() {
     "cancel during continuous capture drains requests and detaches callback before returning");
   reset();cleanAudio();interactions(true);fakeCueDurationMs=500;const auto before=generation;
   for(unsigned i=0;i<2700;++i) { loop();if(fakeEnrollCommits)break; }
-  check(fakeEnrollCommits==1 && !enrollmentActive && face.state.asleep && !fakeMicActive && generation==before && fakeMicBegins==3 && fakeEnrollValidations==1,
+  check(fakeEnrollCommits==1 && !enrollmentActive && face.state.asleep && !fakeMicActive && generation==before && fakeMicBegins==6 && fakeEnrollValidations==1,
     "three identical record actions validate and automatically save offline without a fourth click");
-  check(observedGaps.size()==3 && std::all_of(observedGaps.begin(),observedGaps.end(),[](uint32_t gap){return gap>=700;}),
+  const auto gaps=speechGaps();
+  check(gaps.size()==3 && std::all_of(gaps.begin(),gaps.end(),[](uint32_t gap){return gap>=700 && gap<=702;}),
     "all three recordings wait at least 700ms after their complete cue");
   check(shown("1/3 Click: record") && shown("2/3 Click: record") && shown("3/3 Click: record") &&
     shown("1/3 Say same call") && shown("2/3 Say same call") && shown("3/3 Say same call") &&
@@ -114,15 +153,15 @@ int main() {
   reset();interactions(false);enrollCall();
   check(!fakeEnrollCommits && fakeWakeAvailable && !fakeMicActive,"microphone failure keeps old call");
   reset();cleanAudio();fakeEnrollMatch=false;interactions(false);enrollCall();
-  check(!fakeEnrollCommits && fakeWakeAvailable && !fakeEnrollPending && fakeMicBegins==3 && fakeEnrollValidations==1 && shown("Click: retry"),
+  check(!fakeEnrollCommits && fakeWakeAvailable && !fakeEnrollPending && fakeMicBegins==6 && fakeEnrollValidations==1 && shown("Click: retry"),
     "inconsistent triple cannot reach automatic save and offers retry");
   reset();cleanAudio();fakeEnrollMatch=false;interactions(false,0,true);enrollCall();
-  check(fakeEnrollCommits==1 && fakeMicBegins==6 && fakeEnrollValidations==2 && !fakeEnrollPending && face.state.asleep,
+  check(fakeEnrollCommits==1 && fakeMicBegins==12 && fakeEnrollValidations==2 && !fakeEnrollPending && face.state.asleep,
     "retry discards the failed triple and collects three fresh calls before saving");
   for(unsigned failedSample: {2u,3u}) {
     reset();cleanAudio();const auto clean=fakeRecordAction;
     fakeRecordAction=[clean,failedSample](int16_t* data,size_t n,uint32_t rate){
-      return fakeMicBegins!=failedSample && clean(data,n,rate);
+      return fakeMicBegins!=failedSample*2 && clean(data,n,rate);
     };
     interactions(false);enrollCall();
     check(!fakeEnrollCommits && fakeWakeAvailable && !fakeEnrollPending && !fakeEnrollSamples && !fakeEnrollValidations && !fakeMicActive,
