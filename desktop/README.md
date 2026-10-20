@@ -1,5 +1,7 @@
 # Windows配布ホスト
 
+最新診断表示版: 0.4.0-preview.2 / 2026-10-21。`releases/StackchanHost-0.4.0-preview.2-win-x64/StackchanHost.exe`。無線TLS接続後のGemini問い合わせ失敗について、安全な固定分類とHTTP状態のみを表示する。Python37件/Node29件/最終EXE自己診断10項目成功。実機の回答取得・呼びかけ不反応は調査継続。[現在の記録](../docs/WIRELESS_RESUME_2026-10-21.md)を優先する。ビルドとアプリの版番号はsettings.pyに共通化。以下の0.3.0記述は初版の履歴。
+
 版: 0.3.0-preview.1 / 2026-10-19。目的: 開発用Python/Node.js/npm/VS Code/PlatformIOを用意しない別のWindows 10/11 x64 PCで、既存Stage2端末の実機用中継を起動する。
 
 ## 成果物

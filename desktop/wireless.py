@@ -13,6 +13,19 @@ from settings import crypt
 
 PORT=48443
 
+FAILURE_CODES=frozenset(('AUTH','QUOTA','MODEL','PERMISSION','CONFIG','SERVER','TRANSPORT','TIMEOUT',
+    'INVALID_AUDIO','EMPTY_AUDIO','OUTPUT_LIMIT','INTERRUPTED','EARLY_CLOSE'))
+
+def wireless_status(event):
+    if not isinstance(event,dict): return None
+    kind=event.get('event')
+    if kind not in ('ready','device-online','turn-complete','turn-failed','failed'): return None
+    if kind=='turn-failed' and isinstance(event.get('code'),str) and event['code'] in FAILURE_CODES:
+        status=event.get('status')
+        status=status if type(status) is int and 100<=status<=599 else 0
+        return f"WIRELESS turn-failed {event['code']} {status}"
+    return 'WIRELESS '+kind
+
 def normalize_code(value):
     value=re.sub(r'\s','',value).lower()
     if not re.fullmatch('[0-9a-f]{32}',value): raise ValueError('INVALID_PAIR_CODE')
@@ -67,8 +80,9 @@ def run_wireless(runtime,node,host,code,env,stop_event,on_status):
             except queue.Empty: continue
             except (ValueError,TypeError): continue
             kind=event.get('event') if isinstance(event,dict) else None
-            if kind in ('ready','device-online','turn-complete','turn-failed','failed'):
-                on_status('WIRELESS '+kind)
+            status=wireless_status(event)
+            if status:
+                on_status(status)
                 if kind=='failed':return 1
                 if kind=='ready':ready=True
         return 0 if ready else 1

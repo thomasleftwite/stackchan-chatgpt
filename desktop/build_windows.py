@@ -15,7 +15,7 @@ import uuid
 ROOT=Path(__file__).resolve().parents[1]
 BUILD=ROOT/'.packaging'
 STAGE=BUILD/'stage/runtime'
-VERSION='0.4.0-preview.1'
+from settings import VERSION
 OUT=ROOT/'releases'/f'StackchanHost-{VERSION}-win-x64'
 JS=['local-gemini','gemini-pc','gemini-server','gemini-isolated','gemini-worker',
     'wireless-host','gemini-turn','private-config','protocol','gemini-probe-client','host-self-check']

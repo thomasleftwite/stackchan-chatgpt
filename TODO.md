@@ -132,7 +132,9 @@ Gemini端末版R07にWiFiManagerを統合しCOM4アプリ限定書込み/ハッ�
 |---|---|---|---|
 | 完了 | GitHub整合性確認とPC上の再検証 | 2026-10-21 | docs/WIRELESS_RESUME_2026-10-21.md R02。リモートmain3283ad2と開発基点一致、ローカルにスライド保存1件から再開。Python34/Node28/C++144/EXE自己診断10項目成功、API0回。テスト用文字列コピーをMSVC対応 |
 | 完了（導入・基本起動） | 無線版のアプリ限定導入と起動 | 2026-10-21 | .pio/firmware-snapshots/gemini-wireless-resume-20261021-r01.bin、SHA256先頭16799F01、1,606,672 bytes。利用者明示承認、COM4の表確認/0x10000への書込みハッシュ検証成功。リセット後にREADY/TLS/wifi=1/WAKE available=1/asleep=1/mic=0を確認。pc=0、実会話は未実施 |
-| 進行中 | 実機ホットスポット/TLS会話/再起動保持 | — | docs/WIRELESS_RESUME_2026-10-21.md R05。ホストListen/端末TLS・wifi=1・pc=0を確認。利用者がホットスポット接続台数0を確認し、WiFiManager設定APへ入り直した。PCホットスポットと同じSSIDへの設定と台数1の確認待ち。既存規則はTCP/UDP Allow、受信設定は未変更。TLS認証・会話・再起動保持は未検証 |
+| 完了（実機接続） | PCホットスポット接続・TLS認証・登録保存 | 2026-10-21 | docs/WIRELESS_RESUME_2026-10-21.md R06。接続先再設定後に利用者が1台を確認。GEM PAIR SAVED/LINK TLS/wifi=1/pc=1。Windows受信規則は変更なし |
+| 未解決・調査中 | 呼びかけ検出と実質問の回答取得 | — | 同記録R06。待受mic=1でも呼びかけ未検出。手動質問2件は入力24,320/25,280 samples送信後、回答0/played=0/FAIL。登録は保持。会話・再起動後保持は未合格 |
+| 完了（実装・オフライン検証） | ホストの安全な失敗分類表示と配布版番号整合 | 2026-10-21 | releases/StackchanHost-0.4.0-preview.2-win-x64/StackchanHost.exe。固定分類/HTTP番号だけを表示。Python37/Node29/EXE自己診断10成功、自己診断API0回、旧EXEハッシュ維持。新版での実質問の分類取得は利用者操作待ち |
 
 ## 構成説明スライドの保管（2026-10-20）
 

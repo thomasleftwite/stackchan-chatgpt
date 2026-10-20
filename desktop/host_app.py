@@ -193,6 +193,23 @@ class HostApp:
         self.history.see('end'); self.history.configure(state='disabled')
 
     def friendly(self,text):
+        match=re.fullmatch(r'WIRELESS turn-failed ([A-Z_]+) (0|[1-5][0-9]{2})',text)
+        if match:
+            messages={'AUTH':'Gemini APIキーの認証に失敗しました。キーを確認してください。',
+                'QUOTA':'Geminiの利用制限に達しました。利用枠を確認してください。',
+                'MODEL':'指定したGeminiモデルが見つかりません。モデル名を確認してください。',
+                'PERMISSION':'Geminiモデルへのアクセスが拒否されました。キーの権限を確認してください。',
+                'CONFIG':'Geminiへの要求設定が拒否されました。モデルと対応機能を確認してください。',
+                'SERVER':'Gemini側で一時的なエラーが発生しました。',
+                'TRANSPORT':'Geminiとの通信に失敗しました。PCのインターネット接続を確認してください。',
+                'TIMEOUT':'Geminiの応答が時間内に完了しませんでした。',
+                'INVALID_AUDIO':'Geminiからの音声形式を確認できませんでした。',
+                'EMPTY_AUDIO':'Geminiから回答音声が返りませんでした。',
+                'OUTPUT_LIMIT':'Geminiの回答音声が長さの上限を超えました。',
+                'INTERRUPTED':'Geminiの回答音声が中断されました。',
+                'EARLY_CLOSE':'回答前にGeminiとの接続が終了しました。'}
+            message=messages.get(match[1],'Geminiへの問い合わせに失敗しました。')
+            return message+(f'（HTTP {match[2]}）' if match[2]!='0' else '')
         if text.startswith('WIRELESS '):
             return {'ready':'PC中継を開始しました。端末の接続を待っています。',
                 'device-online':'端末を認証して接続しました。質問できます。',

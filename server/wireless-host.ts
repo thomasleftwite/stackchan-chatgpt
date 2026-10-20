@@ -4,6 +4,7 @@ import {once} from 'node:events';
 import {createGeminiServer} from './gemini-server.js';
 import {loadGeminiConfig} from './private-config.js';
 import {runIsolatedTurn} from './gemini-isolated.js';
+import {failureDetails} from './gemini-turn.js';
 
 // Only parent stdin supplies pairing credentials. Never write them to stdout.
 const lines=createInterface({input:process.stdin});
@@ -23,7 +24,7 @@ try {
     runTurn:async pcm=>{
       if(!config) return {pcm:Buffer.alloc(1922),sampleRate:24000,chunks:1,elapsedMs:0};
       try {const result=await runIsolatedTurn({config,input:{pcm}});report('turn-complete');return result;}
-      catch {report('turn-failed');throw new Error('TURN_FAILED');}
+      catch (error) {report('turn-failed',failureDetails(error));throw new Error('TURN_FAILED');}
     }});
   close=app.close;
   app.server.listen(value.port,value.host);await once(app.server,'listening');report('ready');

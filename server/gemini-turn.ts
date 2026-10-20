@@ -23,6 +23,15 @@ export function classifyFailure(error: unknown): GeminiFailure {
   return new GeminiFailure(code, Number.isInteger(status) && status >= 100 && status <= 599 ? status : 0);
 }
 
+/** Public diagnostics contain classifications only, never provider text. */
+export function failureDetails(error: unknown): {code: FailureCode; status: number} {
+  const failure = classifyFailure(error);
+  const code = ['AUTH','QUOTA','MODEL','PERMISSION','CONFIG','SERVER','TRANSPORT','TIMEOUT',
+    'INVALID_AUDIO','EMPTY_AUDIO','OUTPUT_LIMIT','INTERRUPTED','EARLY_CLOSE'].includes(failure.code) ? failure.code : 'TRANSPORT';
+  const status = Number.isInteger(failure.status) && failure.status >= 100 && failure.status <= 599 ? failure.status : 0;
+  return {code, status};
+}
+
 export interface TurnResult {pcm: Buffer; sampleRate: 24000; chunks: number; elapsedMs: number; totalTokens?: number}
 export interface TurnOptions {
   config: GeminiConfig;

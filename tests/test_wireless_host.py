@@ -5,9 +5,24 @@ import sys
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'desktop'))
-from wireless import normalize_code,save_pairing,load_pairing,runtime_node,run_wireless
+from wireless import normalize_code,save_pairing,load_pairing,runtime_node,run_wireless,wireless_status
 
 class WirelessHostTests(unittest.TestCase):
+ def test_failure_status_reaches_ui_without_provider_text_or_credentials(self):
+  from host_app import HostApp
+  event={'event':'turn-failed','code':'QUOTA','status':429,'message':'PRIVATE_PROVIDER_TEXT','apiKey':'PRIVATE_KEY'}
+  status=wireless_status(event)
+  self.assertEqual(status,'WIRELESS turn-failed QUOTA 429')
+  friendly=HostApp.friendly(None,status)
+  self.assertIn('利用制限',friendly);self.assertIn('429',friendly)
+  self.assertNotIn('PRIVATE',status+friendly)
+ def test_failure_status_rejects_unknown_codes_and_invalid_http_status(self):
+  self.assertEqual(wireless_status({'event':'turn-failed','code':'PRIVATE_KEY','status':429}),'WIRELESS turn-failed')
+  self.assertEqual(wireless_status({'event':'turn-failed','code':{'message':'PRIVATE_KEY'},'status':429}),'WIRELESS turn-failed')
+  for status in ('429',True,99,600):
+   self.assertEqual(wireless_status({'event':'turn-failed','code':'AUTH','status':status}),'WIRELESS turn-failed AUTH 0')
+  self.assertIsNone(wireless_status({'event':'PRIVATE_PROVIDER_TEXT'}))
+  self.assertEqual(wireless_status({'event':'device-online'}),'WIRELESS device-online')
  def folder(self):
   root=Path(__file__).resolve().parents[1]/'.pio/wireless-tests';root.mkdir(parents=True,exist_ok=True)
   return tempfile.TemporaryDirectory(dir=root)
