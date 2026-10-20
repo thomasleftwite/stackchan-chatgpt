@@ -1,5 +1,14 @@
 # TODO
 
+現在地・未検証項目は [開発経緯と再開地点](docs/RESUME.md) を優先。以下の過去の日付付き行は当時の状態として保持する。
+
+## 開発経緯の整理と構成スライド更新（2026-10-21）
+
+| 状態 | 項目 | 完了日 | 成果物・検証 |
+|---|---|---|---|
+| 完了 | 現行Windows版への再開資料一本化 | 2026-10-21 | docs/RESUME.md R10、README.md、docs/HOTSPOT_TRUST.md R04。旧資料全文をdocs/archive/2026-10-21へ保持し、現行方式と確認済み/未検証を区別。相対リンク・Git基点/リモート参照を確認 |
+| 完了 | 構成スライドR02更新・元版保管 | 2026-10-21 | docs/architecture-slide.pptx、docs/ARCHITECTURE_SLIDE_PRESERVATION.md R02。1枚/58編集可能図形/元寸法・フォントを維持。構造・配置検査0件、最終ファイル再読込・画像表示確認。PowerPoint実アプリ確認は未実施 |
+
 ## GitHub同期（2026-10-20）
 
 | 状態 | 項目 | 完了日 | 成果物・検証 |
@@ -125,6 +134,32 @@ Gemini端末版R07にWiFiManagerを統合しCOM4アプリ限定書込み/ハッ�
 
 2026-10-20追記: 利用者指示で設定APの180秒制限を廃止し標準WiFiManagerの無期限設定へ変更。接続失敗後も再入力可能。USBのAP_JOIN/AP_LEAVE/AP_STOP診断を追加。Python30件成功、Android接続の切断原因は未確定。
 
+
+## コード入力不要のホットスポット信頼方式（2026-10-21）
+
+| 状態 | 項目 | 完了日 | 成果物・検証 |
+|---|---|---|---|
+| 完了（実装・PC検証） | ホットスポット参加を信頼しコード入力を廃止 | 2026-10-21 | docs/HOTSPOT_TRUST.md R01、releases/StackchanHost-0.5.0-preview.1-win-x64/StackchanHost.exe、.pio/firmware-snapshots/gemini-hotspot-trust-20261021-r01.bin。Python39/Node32/C++145/3構成ビルド/EXE自己診断11成功、自己診断API0回 |
+| 完了（導入・基本接続） | 新方式のアプリ限定導入・コードなし自動接続 | 2026-10-21 | docs/HOTSPOT_TRUST.md R02。利用者明示承認、COM4の実機表確認/0x10000への書込み/ハッシュ検証成功。利用者がコードなし接続を確認、端末HOTSPOT/wifi=1/pc=1/WAKE available=1。Windows受信規則変更なし |
+| 完了（基本実機確認） | 新方式での実会話・呼びかけ再登録・リセット後自動復帰 | 2026-10-21 | docs/HOTSPOT_TRUST.md R03。登録SAVED、照合188/MATCH、gen3 PASS/played=1、利用者が音声/口パク/待受復帰を確認。端末リセット後はコードなし自動接続/照合187/MATCH/gen1 PASS/played=1、利用者も再会話を確認。質問受付gap700/701ms |
+| 未検証 | 長期検出精度・電源断耐性・別PC移行 | — | 基本実機確認・端末リセット試験と区別する。追加のストレス試験や実施予定の自動監視は今回設定しない |
+
+## 無線版の開発再開（2026-10-21）
+
+| 状態 | 項目 | 完了日 | 成果物・検証 |
+|---|---|---|---|
+| 完了 | GitHub整合性確認とPC上の再検証 | 2026-10-21 | docs/WIRELESS_RESUME_2026-10-21.md R02。リモートmain3283ad2と開発基点一致、ローカルにスライド保存1件から再開。Python34/Node28/C++144/EXE自己診断10項目成功、API0回。テスト用文字列コピーをMSVC対応 |
+| 完了（導入・基本起動） | 無線版のアプリ限定導入と起動 | 2026-10-21 | .pio/firmware-snapshots/gemini-wireless-resume-20261021-r01.bin、SHA256先頭16799F01、1,606,672 bytes。利用者明示承認、COM4の表確認/0x10000への書込みハッシュ検証成功。リセット後にREADY/TLS/wifi=1/WAKE available=1/asleep=1/mic=0を確認。pc=0、実会話は未実施 |
+| 完了（実機接続） | PCホットスポット接続・TLS認証・登録保存 | 2026-10-21 | docs/WIRELESS_RESUME_2026-10-21.md R06。接続先再設定後に利用者が1台を確認。GEM PAIR SAVED/LINK TLS/wifi=1/pc=1。Windows受信規則は変更なし |
+| 完了（手動質問の基本確認） | API認証復旧・TLS経由の実質問と回答再生 | 2026-10-21 | docs/WIRELESS_RESUME_2026-10-21.md R08。キー再入力後に利用者が回答音声を確認。端末PASS/played=1、input24000/output64560/135frames/18149ms。口パク・長期安定・再起動保持は別途 |
+| 完了（後続0.5で基本確認） | 呼びかけ検出・3回再登録 | 2026-10-21 | 過程はdocs/WIRELESS_RESUME_2026-10-21.md R08、解決結果はdocs/HOTSPOT_TRUST.md R03。PCコード更新操作を廃止した0.5で3回再登録SAVED、距離188/187でMATCHと回答再生成功。リセット後の登録保持・再会話も確認 |
+| 完了（実装・分類の実機確認） | ホストの安全な失敗分類表示と配布版番号整合 | 2026-10-21 | releases/StackchanHost-0.4.0-preview.2-win-x64/StackchanHost.exe。固定分類/取得できたHTTP番号だけを表示。Python37/Node29/EXE自己診断10成功、自己診断API0回、旧EXEハッシュ維持。実機質問でAUTH分類を利用者画面で確認。回答成功は未確認 |
+
+## 構成説明スライドの保管（2026-10-20）
+
+| 状態 | 項目 | 完了日 | 成果物・検証 |
+|---|---|---|---|
+| 完了 | 復元PPTXのGit履歴保存と所在・復旧手順の整備 | 2026-10-20 | docs/architecture-slide.pptx、docs/ARCHITECTURE_SLIDE_PRESERVATION.md R01、READMEリンク、.gitignore除外解除。ZIP/XML・SHA256一致・Git保存を確認。表示確認・GitHubへのpushは未実施 |
 
 ## USB不要のホットスポット構成（2026-10-20）
 

@@ -17,8 +17,8 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1] / 'tools'))
 from run_gemini_device import main as run_device
 from serial.tools import list_ports
 from settings import VERSION, load_settings, save_settings, settings_path, valid_key, valid_model
-from network import local_addresses, is_lan
-from wireless import load_pairing, save_pairing, normalize_code, run_wireless, runtime_node, PORT
+from network import local_addresses, hotspot_networks, is_lan
+from wireless import run_wireless, runtime_node, PORT
 
 DRIVER_URL='https://docs.espressif.com/projects/esp-iot-solution/en/release-v2.0/usb/usb_overview/usb_serial_jtag.html'
 
@@ -39,7 +39,7 @@ class HostApp:
         self.stop_event=threading.Event(); self.worker=None; self.closing=False
         self.events=queue.Queue(maxsize=256)
         self.key=tk.StringVar(); self.model=tk.StringVar(value='gemini-3.8-live')
-        self.transport=tk.StringVar(value='Wi-Fi（USB不要）'); self.pair_code=tk.StringVar();
+        self.transport=tk.StringVar(value='Wi-Fi（USB不要）')
         self.port=tk.StringVar(); self.host=tk.StringVar(); self.remember=tk.BooleanVar(value=False)
         self.status=tk.StringVar(value='PCのホットスポットを有効にし、接続先とGeminiキーを確認してください。')
         root.title('スタックちゃん ホスト'); root.geometry('820x820'); root.minsize(760,790)
@@ -50,21 +50,19 @@ class HostApp:
         style.configure('Action.TButton',font=('Yu Gothic UI',12,'bold'),padding=(18,11))
         outer=ttk.Frame(root,padding=26); outer.pack(fill='both',expand=True)
         ttk.Label(outer,text='スタックちゃん ホスト',style='Title.TLabel').pack(anchor='w')
-        ttk.Label(outer,text='端末をPCのホットスポットにつなぎ、暗号化した通信でGeminiへ中継します。').pack(anchor='w',pady=(2,19))
+        ttk.Label(outer,text='PCのホットスポットにつないだ端末を自動で受け付けます。登録コードは不要です。').pack(anchor='w',pady=(2,19))
         form=ttk.Frame(outer); form.pack(fill='x'); form.columnconfigure(1,weight=1)
         self.transport_box=ttk.Combobox(form,textvariable=self.transport,values=['Wi-Fi（USB不要）','USB診断（従来）'],state='readonly')
-        self.pair_box=ttk.Entry(form,textvariable=self.pair_code,show='●')
         self.port_box=ttk.Combobox(form,textvariable=self.port,state='readonly',width=25)
         self.host_box=ttk.Combobox(form,textvariable=self.host,state='readonly')
         self.key_box=ttk.Entry(form,textvariable=self.key,show='●')
         self.model_box=ttk.Entry(form,textvariable=self.model)
-        for row,(caption,widget) in enumerate([('接続方式',self.transport_box),('USBポート（診断時のみ）',self.port_box),('PCホットスポットのアドレス',self.host_box),('端末画面の登録コード（初回）',self.pair_box),('Gemini APIキー',self.key_box),('モデル',self.model_box)]):
+        self.transport_box.bind('<<ComboboxSelected>>',lambda _event:self.scan())
+        for row,(caption,widget) in enumerate([('接続方式',self.transport_box),('USBポート（診断時のみ）',self.port_box),('PCホットスポットのアドレス',self.host_box),('Gemini APIキー',self.key_box),('モデル',self.model_box)]):
             ttk.Label(form,text=caption).grid(row=row,column=0,sticky='w',padx=(0,16),pady=8)
             widget.grid(row=row,column=1,sticky='ew',pady=8)
         self.scan_button=ttk.Button(form,text='再検出',command=self.scan)
         self.scan_button.grid(row=0,column=2,padx=(10,0))
-        self.forget_button=ttk.Button(form,text='端末登録を解除',command=self.forget_pairing)
-        self.forget_button.grid(row=3,column=2,padx=(10,0))
         self.remember_box=ttk.Checkbutton(outer,text='このWindowsユーザーでキーを暗号化して保存する',variable=self.remember)
         self.remember_box.pack(anchor='w',pady=(12,4))
         ttk.Label(outer,text='未選択ならキーは今回の起動中だけ使用します。EXEや端末には保存しません。',foreground='#4c6175').pack(anchor='w')
@@ -84,19 +82,11 @@ class HostApp:
             saved=load_settings(self.path)
             for name in ('model','port','host'):
                 if isinstance(saved.get(name),str): getattr(self,name).set(saved[name])
-            self.pair_code.set(load_pairing(self.path.with_name('pairing.json')))
             self.key.set(saved.get('key','')); self.remember.set(bool(saved.get('key')))
         except Exception: self.status.set('保存設定を読み込めませんでした。キーを再入力してください。')
         root.protocol('WM_DELETE_WINDOW',self.close)
         root.after(100,self.pump)
         if discover: root.after(150,self.scan)
-
-    def forget_pairing(self):
-        if self.worker and self.worker.is_alive(): return
-        try: self.path.with_name('pairing.json').unlink(missing_ok=True)
-        except OSError:
-            messagebox.showerror('端末の登録','登録情報を削除できませんでした。'); return
-        self.pair_code.set(''); self.log('PCの端末登録を解除しました。端末がSleepingのとき10秒長押しすると新しいコードを発行します。')
 
     def show_help(self):
         dialog=tk.Toplevel(self.root); dialog.title('使い方・ライセンス'); dialog.geometry('820x620')
@@ -116,10 +106,11 @@ class HostApp:
     def scan(self):
         if self.worker and self.worker.is_alive(): return
         self.scan_button.configure(state='disabled'); self.status.set('USBポートとLANを確認しています…')
+        wireless=self.transport.get()=='Wi-Fi（USB不要）'
         def work():
             ports=[p.device for p in list_ports.comports()]
             preferred=[p.device for p in list_ports.comports() if p.vid==0x303A]
-            try: hosts=local_addresses()
+            try: hosts=sorted(hotspot_networks()) if wireless else local_addresses()
             except Exception: hosts=[]
             self.post('scan',(ports,preferred,hosts))
         threading.Thread(target=work,daemon=True).start()
@@ -134,8 +125,6 @@ class HostApp:
         self.model_box.configure(state='disabled' if value else 'normal')
         self.remember_box.configure(state='disabled' if value else 'normal')
         self.transport_box.configure(state='disabled' if value else 'readonly')
-        self.pair_box.configure(state='disabled' if value else 'normal')
-        self.forget_button.configure(state='disabled' if value else 'normal')
 
     def start(self):
         key=self.key.get().strip(); model=self.model.get().strip()
@@ -144,11 +133,6 @@ class HostApp:
             messagebox.showwarning('接続先の確認','接続先を選んでください。USB診断ではUSBポートも必要です。'); return
         if not valid_key(key) or not valid_model(model):
             messagebox.showwarning('設定の確認','Geminiキーとモデル名を確認してください。'); return
-        code=''
-        if wireless:
-            try: code=normalize_code(self.pair_code.get())
-            except ValueError:
-                messagebox.showwarning('端末の登録','端末画面に表示される32桁のコードを入力してください。'); return
         selected_host=self.host.get()
         runtime=runtime_root(); node=runtime/'node.exe'
         if not node.is_file():
@@ -156,10 +140,6 @@ class HostApp:
         try: save_settings(self.path,model=model,port=self.port.get(),host=self.host.get(),key=key,remember=self.remember.get())
         except Exception:
             messagebox.showerror('設定保存','設定を保存できませんでした。保存先へのアクセスを確認してください。'); return
-        if wireless:
-            try: save_pairing(self.path.with_name('pairing.json'),code)
-            except Exception:
-                messagebox.showerror('端末の登録','登録情報を保存できませんでした。'); return
         args=['--port',self.port.get(),'--host',self.host.get(),'--mode','gemini','--seconds','580']
         env=runtime_env(key,model)
         self.stop_event.clear(); self.set_running(True); self.status.set('接続を準備しています…')
@@ -167,7 +147,7 @@ class HostApp:
             try:
                 if wireless:
                     stable_node=runtime_node(runtime)
-                    result=run_wireless(runtime,stable_node,selected_host,code,env,self.stop_event,lambda text:self.post('status',text))
+                    result=run_wireless(runtime,stable_node,selected_host,env,self.stop_event,lambda text:self.post('status',text))
                 else:
                     result=run_device(args,runtime_root=runtime,node_path=node,stop_event=self.stop_event,
                         on_status=lambda text:self.post('status',text),child_env=env)
@@ -193,13 +173,31 @@ class HostApp:
         self.history.see('end'); self.history.configure(state='disabled')
 
     def friendly(self,text):
+        match=re.fullmatch(r'WIRELESS turn-failed ([A-Z_]+) (0|[1-5][0-9]{2})',text)
+        if match:
+            messages={'AUTH':'Gemini APIキーの認証に失敗しました。キーを確認してください。',
+                'QUOTA':'Geminiの利用制限に達しました。利用枠を確認してください。',
+                'MODEL':'指定したGeminiモデルが見つかりません。モデル名を確認してください。',
+                'PERMISSION':'Geminiモデルへのアクセスが拒否されました。キーの権限を確認してください。',
+                'CONFIG':'Geminiへの要求設定が拒否されました。モデルと対応機能を確認してください。',
+                'SERVER':'Gemini側で一時的なエラーが発生しました。',
+                'TRANSPORT':'Geminiとの通信に失敗しました。PCのインターネット接続を確認してください。',
+                'TIMEOUT':'Geminiの応答が時間内に完了しませんでした。',
+                'INVALID_AUDIO':'Geminiからの音声形式を確認できませんでした。',
+                'EMPTY_AUDIO':'Geminiから回答音声が返りませんでした。',
+                'OUTPUT_LIMIT':'Geminiの回答音声が長さの上限を超えました。',
+                'INTERRUPTED':'Geminiの回答音声が中断されました。',
+                'EARLY_CLOSE':'回答前にGeminiとの接続が終了しました。'}
+            message=messages.get(match[1],'Geminiへの問い合わせに失敗しました。')
+            return message+(f'（HTTP {match[2]}）' if match[2]!='0' else '')
         if text.startswith('WIRELESS '):
             return {'ready':'PC中継を開始しました。端末の接続を待っています。',
-                'device-online':'端末を認証して接続しました。質問できます。',
+                'device-online':'ホットスポット上の端末が接続しました。質問できます。',
                 'turn-complete':'Geminiの回答を端末へ送っています。',
                 'turn-failed':'Geminiへの問い合わせに失敗しました。',
                 'failed':'起動できませんでした。ホットスポットのアドレスとポートの使用状態を確認してください。',
                 'stale_address':'PCのアドレスが変わっています。「再検出」で選び直してください。',
+                'hotspot_required':'PCのモバイルホットスポットをオンにして「再検出」で選び直してください。',
                 'stopped':'無線中継を停止しました。'}.get(text.split(' ',1)[1],'')
         if text.startswith('GEM WIFI CONNECTED'): return '端末がWi-Fiへ接続しました。'
         if text.startswith('GEM STATE configured=1 wifi=1 pc=1'): return '接続できました。端末を短押しして、呼びかけてください。'
@@ -251,19 +249,18 @@ def self_test(report,ui=False):
             capture_output=True,text=True,timeout=45,creationflags=flags,env=runtime_env())
         details=json.loads(result.stdout.strip())
         checks['offlinePcmAndWorker']=result.returncode==0 and details.get('status')=='PASS' and details.get('apiCalls')==0
-        tls_script="""import {pathToFileURL} from 'node:url';
+        hotspot_script="""import {pathToFileURL} from 'node:url';
 const {createGeminiServer}=await import(pathToFileURL(process.argv[1]+'/gemini-server.js'));
 const {runGeminiProtocolProbe}=await import(pathToFileURL(process.argv[1]+'/gemini-probe-client.js'));
 const {once}=await import('node:events');
-const key='0123456789abcdef0123456789abcdef';
-const app=createGeminiServer({deviceToken:key,tlsPsk:{identity:'stackchan-v1',keyHex:key},runTurn:async()=>({pcm:Buffer.alloc(2),sampleRate:24000,chunks:1,elapsedMs:0})});
+const app=createGeminiServer({deviceToken:'',trustedSubnet:'127.0.0.1/32',runTurn:async()=>({pcm:Buffer.alloc(2),sampleRate:24000,chunks:1,elapsedMs:0})});
 try {app.server.listen(0,'127.0.0.1');await once(app.server,'listening');
-const result=await runGeminiProtocolProbe('wss://127.0.0.1:'+app.server.address().port+'/live',key,Buffer.alloc(640),key);
+const result=await runGeminiProtocolProbe('ws://127.0.0.1:'+app.server.address().port+'/live','',Buffer.alloc(640));
 console.log(JSON.stringify({ok:result.pcm.length===2}));} finally {await app.close();}
 """
-        result=subprocess.run([str(node),'--input-type=module','-e',tls_script,str(runtime/'server/dist')],
+        result=subprocess.run([str(node),'--input-type=module','-e',hotspot_script,str(runtime/'server/dist')],
             capture_output=True,text=True,timeout=20,creationflags=flags,env=runtime_env())
-        checks['wirelessTls']=result.returncode==0 and json.loads(result.stdout.strip()).get('ok') is True
+        checks['hotspotTrust']=result.returncode==0 and json.loads(result.stdout.strip()).get('ok') is True
         with tempfile.TemporaryDirectory(dir=report.parent) as folder:
             config=Path(folder)/'settings.json'; sample='packaging-test-key-0123456789'
             save_settings(config,model='gemini-3.8-live',port='COM4',host='192.168.1.2',key=sample,remember=True)
@@ -274,6 +271,7 @@ console.log(JSON.stringify({ok:result.pcm.length===2}));} finally {await app.clo
                 root=tk.Tk(); root.attributes('-alpha',0.0); root.withdraw(); app=HostApp(root,discover=False,config_path=Path(folder)/'ui.json')
                 root.deiconify()
                 root.update(); checks['gui']=app.start_button.cget('text')=='接続して開始' and app.remember.get() is False
+                checks['noManualPairing']=not hasattr(app,'pair_box') and not hasattr(app,'pair_code') and not hasattr(app,'forget_button')
                 def controls(widget):
                     result=[]
                     for child in widget.winfo_children():

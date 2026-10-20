@@ -7,12 +7,15 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'desktop'))
-from settings import valid_key,valid_model,save_settings,load_settings
+from settings import valid_key,valid_model,save_settings,load_settings,VERSION
 from network import is_lan
 from host_app import runtime_env, HostApp
-from build_windows import fresh_stage
+from build_windows import fresh_stage,OUT
 
 class HostSettingsTest(unittest.TestCase):
+    def test_distribution_folder_matches_application_version(self):
+        self.assertEqual(OUT.name,f'StackchanHost-{VERSION}-win-x64')
+
     def test_wifi_failure_identifies_device_network(self):
         text=HostApp.friendly(None, 'Gemini device session exit {"reason":"wifi_failed"}')
         self.assertIn("端末がWi-Fiに接続できません",text)

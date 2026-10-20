@@ -1,6 +1,7 @@
 import {createServer, type IncomingMessage, type ServerResponse} from 'node:http';
 import {createServer as createSecureServer} from 'node:https';
 import {createHash, timingSafeEqual} from 'node:crypto';
+import {BlockList, isIPv4} from 'node:net';
 import {WebSocketServer, WebSocket} from 'ws';
 import {decodePcm, encodePcm} from './protocol.js';
 import type {TurnResult} from './gemini-turn.js';
@@ -11,17 +12,40 @@ export interface GeminiServerOptions {
   sessionMs?: number;
   tlsPsk?: {identity:string; keyHex:string};
   onHealth?: () => void;
+  trustedSubnet?: string;
+}
+
+function hotspotBoundary(subnet: string): BlockList {
+  const parts=subnet.split('/'), prefix=Number(parts[1]), ip=parts[0];
+  const octets=ip?.split('.').map(Number);
+  const privateIp=octets && (octets[0]===10 || (octets[0]===172 && octets[1]!>=16 && octets[1]!<=31) || (octets[0]===192 && octets[1]===168));
+  const loopback=ip?.startsWith('127.') && prefix===32;
+  if(parts.length!==2 || !ip || !isIPv4(ip) || !Number.isInteger(prefix) ||
+    !((privateIp && prefix>=16 && prefix<=30) || loopback)) throw new Error('Invalid hotspot boundary');
+  const boundary=new BlockList();boundary.addSubnet(ip,prefix,'ipv4');return boundary;
+}
+export function hotspotPeerAllowed(peer:string|undefined,subnet:string):boolean {
+  const boundary=hotspotBoundary(subnet);
+  const ip=peer?.startsWith('::ffff:') ? peer.slice(7) : peer;
+  return !!ip && isIPv4(ip) && boundary.check(ip,'ipv4');
 }
 
 /** Initial half-duplex protocol v2: one bounded utterance/response per connection. */
 export function createGeminiServer(options: GeminiServerOptions) {
-  if (!/^[\x21-\x7e]{32,256}$/.test(options.deviceToken)) throw new Error('Invalid device token');
+  const boundary=options.trustedSubnet ? hotspotBoundary(options.trustedSubnet) : undefined;
+  if(boundary && options.tlsPsk) throw new Error('Select one trust mode');
+  if (!boundary && !/^[\x21-\x7e]{32,256}$/.test(options.deviceToken)) throw new Error('Invalid device token');
+  const admitted=(peer:string|undefined)=>{
+    const ip=peer?.startsWith('::ffff:') ? peer.slice(7) : peer;
+    return !!boundary && !!ip && isIPv4(ip) && boundary.check(ip,'ipv4');
+  };
   const sessionMs = options.sessionMs ?? 90_000;
   if (!Number.isFinite(sessionMs) || sessionMs < 100 || sessionMs > 90_000) throw new Error('Invalid deadline');
   const digest = (value: string) => createHash('sha256').update(value).digest();
   const expected = digest(options.deviceToken);
   if (options.tlsPsk && (!/^[0-9a-f]{32}$/.test(options.tlsPsk.keyHex) || options.tlsPsk.identity !== 'stackchan-v1')) throw new Error('Invalid TLS identity');
   const handler = (req:IncomingMessage, res:ServerResponse) => {
+    if(boundary && !admitted(req.socket.remoteAddress)) {res.writeHead(403);res.end();return;}
     if (options.tlsPsk && req.headers.authorization !== `Bearer ${options.deviceToken}`) {
       res.writeHead(401); res.end(); return;
     }
@@ -42,10 +66,11 @@ export function createGeminiServer(options: GeminiServerOptions) {
   server.on('upgrade', (req, socket, head) => {
     socket.on('error', () => {});
     const reject = (code: number) => socket.end(`HTTP/1.1 ${code} Rejected\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+    if(boundary && !admitted(req.socket.remoteAddress)) {reject(403);return;}
     if (req.url !== '/live') { reject(404); return; }
     const auth = req.headers.authorization;
-    if (typeof auth !== 'string' || !auth.startsWith('Bearer ') || auth.length > 263 ||
-        !timingSafeEqual(digest(auth.slice(7)), expected)) { reject(401); return; }
+    if (!boundary && (typeof auth !== 'string' || !auth.startsWith('Bearer ') || auth.length > 263 ||
+        !timingSafeEqual(digest(auth.slice(7)), expected))) { reject(401); return; }
     if (wss.clients.size || busy) { reject(429); return; }
     wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws));
   });

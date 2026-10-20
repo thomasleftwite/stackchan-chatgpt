@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import re
 
-VERSION = '0.4.0-preview.1'
+VERSION = '0.5.0-preview.1'
 
 def valid_key(value):
     return isinstance(value, str) and bool(re.fullmatch(r'[\x21-\x7e]{20,256}', value))

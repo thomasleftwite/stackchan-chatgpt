@@ -19,8 +19,8 @@ elif new not in source:
     raise RuntimeError("WebSockets source changed: review the frame-limit patch")
 
 
-# WebSockets 2.7.3 does not expose WiFiClientSecure PSK configuration. Add the
-# pinned ESP32 API call only in the wireless firmware; never use setInsecure there.
+# Retire the earlier app-PSK extension in generated dependencies. The default
+# hotspot mode now relies on Wi-Fi admission and uses no app credential.
 client = header.with_name("WebSocketsClient.cpp")
 old_psk = """            } else if(!SSL_FINGERPRINT_IS_SET) {
                 _client.ssl->setInsecure();"""
@@ -32,7 +32,7 @@ new_psk = """            } else if(!SSL_FINGERPRINT_IS_SET) {
                 _client.ssl->setInsecure();
 #endif"""
 source = client.read_text(encoding="utf-8")
-if new_psk not in source:
-    if source.count(old_psk) != 1:
-        raise RuntimeError("WebSockets PSK extension changed: review pinned source")
-    client.write_text(source.replace(old_psk,new_psk,1),encoding="utf-8")
+if new_psk in source:
+    client.write_text(source.replace(new_psk,old_psk,1),encoding="utf-8")
+elif source.count(old_psk) != 1:
+    raise RuntimeError("WebSockets source changed: review retired PSK extension")

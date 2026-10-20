@@ -1,9 +1,16 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {runGeminiTurn, GeminiFailure, classifyFailure, type LiveConnector} from '../gemini-turn.js';
+import {runGeminiTurn, GeminiFailure, classifyFailure, failureDetails, type LiveConnector} from '../gemini-turn.js';
 import type {LiveConnectParameters, LiveServerMessage} from '@google/genai';
 
 const config = {apiKey:'test-only-key-not-a-credential', model:'gemini-3.8-live'};
+test('wireless failure details retain only fixed classification and HTTP status', () => {
+  const error=Object.assign(new Error('PRIVATE_PROVIDER_TEXT PRIVATE_KEY'),{status:429});
+  assert.deepEqual(failureDetails(error),{code:'QUOTA',status:429});
+  assert.equal(JSON.stringify(failureDetails(error)).includes('PRIVATE'),false);
+  assert.deepEqual(failureDetails(new GeminiFailure('TIMEOUT')),{code:'TIMEOUT',status:0});
+  assert.deepEqual(failureDetails(Object.assign(new GeminiFailure('AUTH'),{code:'PRIVATE_KEY',status:NaN})),{code:'TRANSPORT',status:0});
+});
 function fake(emit: (p: LiveConnectParameters) => void) {
   let closed = 0;
   const input: unknown[] = [];
