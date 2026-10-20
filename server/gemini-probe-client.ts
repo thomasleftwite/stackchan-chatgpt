@@ -5,12 +5,12 @@ import {encodePcm, decodePcm} from './protocol.js';
 export function runGeminiProtocolProbe(target: string, token: string, pcm: Buffer, tlsKey?:string): Promise<{pcm:Buffer;frames:number}> {
   const url = new URL(target);
   if (url.protocol !== (tlsKey ? 'wss:' : 'ws:') || url.hostname !== '127.0.0.1' || url.pathname !== '/live' || url.search || url.username || url.password ||
-      !pcm.length || pcm.length % 2 || pcm.length > 160_000 || !/^[\x21-\x7e]{32,256}$/.test(token))
+      !pcm.length || pcm.length % 2 || pcm.length > 160_000 || (token!=='' && !/^[\x21-\x7e]{32,256}$/.test(token)))
     throw new Error('Invalid local probe options');
   if(tlsKey && !/^[0-9a-f]{32}$/.test(tlsKey)) throw new Error('Invalid TLS options');
   return new Promise((resolve, reject) => {
     const secure=tlsKey ? {minVersion:'TLSv1.2' as const,maxVersion:'TLSv1.2' as const,ciphers:'DHE-PSK-AES128-GCM-SHA256',rejectUnauthorized:false,pskCallback:()=>({identity:'stackchan-v1',psk:Buffer.from(tlsKey,'hex')})} : {};
-    const ws = new WebSocket(url, {...secure,headers:{Authorization:`Bearer ${token}`}, maxPayload:1024, perMessageDeflate:false, handshakeTimeout:2000});
+    const ws = new WebSocket(url, {...secure,headers:token ? {Authorization:`Bearer ${token}`} : {}, maxPayload:1024, perMessageDeflate:false, handshakeTimeout:2000});
     let state: 'ready'|'upload'|'waiting'|'output'|'draining'|'complete' = 'ready';
     let sent = 0, received = 0, samples = 0, expectedSamples = 0, expectedFrames = 0, settled = false;
     const chunks: Buffer[] = [];

@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch,MagicMock
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'desktop'))
 from wireless import normalize_code,save_pairing,load_pairing,runtime_node,run_wireless,wireless_status
 
@@ -43,7 +43,22 @@ class WirelessHostTests(unittest.TestCase):
    self.assertEqual(runtime_node(source,root/'installed'),target);self.assertEqual(target.read_bytes(),b'fixture-runtime')
  def test_stale_interface_is_rejected_before_server_or_usb_access(self):
   result=[]
-  with patch('network.local_addresses',return_value=['192.168.137.1']),patch('wireless.subprocess.Popen') as child:
-   self.assertEqual(run_wireless('.','unused','192.168.1.5','a'*32,{},None,result.append),1)
+  with patch('network.hotspot_networks',return_value={'192.168.137.1':'192.168.137.0/24'}),patch('wireless.subprocess.Popen') as child:
+   self.assertEqual(run_wireless('.','unused','192.168.1.5',{},None,result.append),1)
    child.assert_not_called()
-  self.assertEqual(result,['WIRELESS stale_address'])
+  self.assertEqual(result,['WIRELESS hotspot_required'])
+ def test_hotspot_selection_uses_only_active_wifi_direct_ipv4(self):
+  from network import hotspot_networks
+  data=[{'address':'192.168.137.1','mask':'255.255.255.0'}, {'address':'169.254.1.2','mask':'255.255.0.0'}]
+  with patch('network.subprocess.run') as run:
+   run.return_value.stdout=json.dumps(data)
+   self.assertEqual(hotspot_networks(),{'192.168.137.1':'192.168.137.0/24'})
+   self.assertIn('Wi-Fi Direct',run.call_args.args[0][-1])
+   self.assertIn("-eq 'Up'",run.call_args.args[0][-1])
+ def test_service_starts_without_pairing_and_passes_only_hotspot_boundary(self):
+  process=MagicMock();process.stdout=iter(['{"event":"ready"}\n']);process.poll.return_value=None
+  stop=MagicMock();stop.wait.side_effect=[False,True];events=[]
+  with patch('network.hotspot_networks',return_value={'192.168.137.1':'192.168.137.0/24'}),patch('wireless.subprocess.Popen',return_value=process):
+   self.assertEqual(run_wireless('.','node','192.168.137.1',{},stop,events.append),0)
+  self.assertEqual(json.loads(process.stdin.write.call_args.args[0]),{'host':'192.168.137.1','port':48443,'subnet':'192.168.137.0/24'})
+  self.assertEqual(events,['WIRELESS ready','WIRELESS stopped'])

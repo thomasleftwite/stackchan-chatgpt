@@ -1,5 +1,7 @@
 # Windows配布ホスト
 
+最新: 0.5.0-preview.1 / 2026-10-21。`releases/StackchanHost-0.5.0-preview.1-win-x64/StackchanHost.exe`。利用者指示で、ホットスポット接続を信頼し、コード入力・アプリPSKを不要にした。ホットスポット側IP/サブネットのみで受け付ける。Python39/Node32/C++145/3構成ビルド/EXE自己診断11項目成功。アプリ限定導入、コードなし接続、呼びかけ再登録/会話/口パク/待受復帰、端末リセット後の自動再接続と再会話を実機確認。[方式・検証範囲](../docs/HOTSPOT_TRUST.md) R03を優先する。
+
 最新診断表示版: 0.4.0-preview.2 / 2026-10-21。`releases/StackchanHost-0.4.0-preview.2-win-x64/StackchanHost.exe`。無線TLS接続後のGemini問い合わせ失敗について、安全な固定分類とHTTP状態のみを表示する。Python37件/Node29件/最終EXE自己診断10項目成功。実機の回答取得・呼びかけ不反応は調査継続。[現在の記録](../docs/WIRELESS_RESUME_2026-10-21.md)を優先する。ビルドとアプリの版番号はsettings.pyに共通化。以下の0.3.0記述は初版の履歴。
 
 版: 0.3.0-preview.1 / 2026-10-19。目的: 開発用Python/Node.js/npm/VS Code/PlatformIOを用意しない別のWindows 10/11 x64 PCで、既存Stage2端末の実機用中継を起動する。

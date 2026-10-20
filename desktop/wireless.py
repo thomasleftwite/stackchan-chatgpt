@@ -55,12 +55,12 @@ def runtime_node(runtime, destination=None):
         temp=target.with_suffix('.new');shutil.copyfile(source,temp);os.replace(temp,target)
     return target
 
-def run_wireless(runtime,node,host,code,env,stop_event,on_status):
-    # Only the selected LAN is bound. Parent stdin carries the device credential.
-    from network import local_addresses
-    if host not in local_addresses():
-        on_status('WIRELESS stale_address');return 1
-    code=normalize_code(code)
+def run_wireless(runtime,node,host,env,stop_event,on_status):
+    # Wi-Fi membership is the trust boundary selected by the user.
+    from network import hotspot_networks
+    networks=hotspot_networks()
+    if host not in networks:
+        on_status('WIRELESS hotspot_required');return 1
     child=subprocess.Popen([str(node),str(Path(runtime)/'server/dist/wireless-host.js')],cwd=Path(runtime)/'server',
         stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env=env,
         creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
@@ -71,7 +71,7 @@ def run_wireless(runtime,node,host,code,env,stop_event,on_status):
             except queue.Full: pass
     threading.Thread(target=read,daemon=True).start()
     try:
-        child.stdin.write(json.dumps({'host':host,'port':PORT,'keyHex':code})+'\n');child.stdin.flush()
+        child.stdin.write(json.dumps({'host':host,'port':PORT,'subnet':networks[host]})+'\n');child.stdin.flush()
         ready=False
         while not stop_event.wait(.1):
             if child.poll() is not None:

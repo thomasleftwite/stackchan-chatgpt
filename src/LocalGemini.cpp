@@ -78,9 +78,6 @@ void released(void*, void* data, size_t length) {
 }
 bool pcReady() { return configured && pcOnline && millis() - pcSeen < 20000; }
 void updateUi() {
-#ifdef STACKCHAN_WIRELESS
-  if(wirelessMode && wireless.ready() && !wireless.paired()) return;
-#endif
   face.wakeAvailable(wakeInput.available());
   face.link(!configured ? deviceui::Link::Unconfigured : WiFi.status() != WL_CONNECTED ? deviceui::Link::WifiOffline :
             !pcReady() ? deviceui::Link::PcOffline : deviceui::Link::Ready);
@@ -148,13 +145,14 @@ bool transport() {
   stopped = false; sent = acked = fault = 0; reply = {};
   if (++generation == 0) ++generation;
   ws.onEvent(event);
-#ifdef STACKCHAN_WIRELESS
-  if(wirelessMode) ws.beginSSL(host,port,"/live",static_cast<const char*>(nullptr),"");
-  else
-#endif
   ws.begin(host, port, "/live", "");
   ws.setReconnectInterval(500);
-  snprintf(auth, sizeof(auth), "Authorization: Bearer %s", token); ws.setExtraHeaders(auth);
+#ifdef STACKCHAN_WIRELESS
+  if(wirelessMode) auth[0]=0;
+  else
+#endif
+  snprintf(auth, sizeof(auth), "Authorization: Bearer %s", token);
+  ws.setExtraHeaders(auth);
   const auto started = millis(); uint32_t nextSend = started, playbackStarted = 0;
   bool playbackQueued = false;
   while (!failed && !closed && millis() - started < 85000) {
@@ -510,8 +508,7 @@ void dispatch() {
     Serial.println("GEM BUILD enrollment=7");
     Serial.printf("GEM WAKE available=%u\n",wakeInput.available() ? 1 : 0);
 #ifdef STACKCHAN_WIRELESS
-    Serial.println(wirelessMode ? "GEM LINK TLS" : "GEM LINK USB");
-    Serial.println(wireless.paired() ? "GEM PAIR READY" : "GEM PAIR REQUIRED");
+    Serial.println(wirelessMode ? "GEM LINK HOTSPOT" : "GEM LINK USB");
 #endif
     Serial.printf("GEM STATE configured=%u wifi=%u pc=%u\n", configured ? 1 : 0, WiFi.status() == WL_CONNECTED ? 1 : 0, pcReady() ? 1 : 0);
     Serial.printf("GEM UI stage=3 mode=%u asleep=%u mic=%u\n", static_cast<unsigned>(face.state.mode), face.state.asleep ? 1 : 0, M5.Mic.isRunning() ? 1 : 0);
@@ -543,7 +540,7 @@ void setup() {
   WiFi.onEvent(wifiDiagnostic);
   connectWifi(M5.BtnA.isPressed());
 #ifdef STACKCHAN_WIRELESS
-  if(!wireless.begin()) Serial.println("GEM PAIR FAIL");
+  wireless.begin();
 #endif
   wakeInput.begin();
   Serial.printf("GEM WAKE available=%u\n", wakeInput.available() ? 1 : 0);
@@ -552,16 +549,11 @@ void setup() {
 void loop() {
 #ifdef STACKCHAN_WIRELESS
   if(wirelessMode && wireless.ready()) {
-    const bool wasPaired=wireless.paired();
     const bool online=wireless.online();
     configured=true;pcOnline=online;
     if(online) pcSeen=millis();
     const String gateway=WiFi.gatewayIP().toString();strlcpy(host,gateway.c_str(),sizeof(host));
-    port=WirelessLink::port;strlcpy(token,wireless.key(),sizeof(token));
-    if(!wasPaired && wireless.paired()) {face.state.sleep(millis());idle();}
-    if(!wireless.paired()) {
-      wireless.showCode();pollCommands();delay(50);return;
-    }
+    port=WirelessLink::port;token[0]=0;
   }
 #endif
   M5.update(); updateUi(); if (!input || !output) { delay(20); return; }
@@ -577,15 +569,6 @@ void loop() {
         face.set(Mode::Setup,"Release: learn call"); const auto wait=millis();
         while(M5.BtnA.isPressed() && millis()-wait<10000) {
           M5.update(); updateUi();
-#ifdef STACKCHAN_WIRELESS
-          if(millis()-pressedAt>=10000) {
-            const auto release=millis();
-            while(M5.BtnA.isPressed() && millis()-release<5000) {M5.update();delay(10);}
-            if(M5.BtnA.isPressed()) {face.state.sleep(millis());idle();return;}
-            if(wireless.resetPairing()) {wirelessMode=true;wireless.showCode();}
-            return;
-          }
-#endif
           delay(10);
         }
         if(!M5.BtnA.isPressed()) enrollCall(); else { face.state.sleep(millis()); idle(); }
@@ -611,7 +594,4 @@ void loop() {
   } else wakeInput.stop(audio);
   delay(2);
 }
-#ifdef STACKCHAN_WIRELESS
-const char* stackchanTlsPsk() { return wireless.key(); }
-#endif
 #endif

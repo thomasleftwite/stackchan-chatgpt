@@ -29,10 +29,12 @@ struct Gateway{String toString(){return "192.168.137.1";}};
 struct FakeWiFi {int state=3;int status(){return state;}Gateway gatewayIP(){return {};}};
 inline FakeWiFi WiFi;
 inline std::string tlsKey,tlsIdentity,lastUrl;inline int httpStatus=200,httpCalls=0;
+struct WiFiClient {};
 struct WiFiClientSecure{void setPreSharedKey(const char* identity,const char* key){tlsIdentity=identity;tlsKey=key;}void setHandshakeTimeout(int){}};
 struct HTTPClient{
  void setConnectTimeout(int){}void setTimeout(int){}
  bool begin(WiFiClientSecure&,const String& url){lastUrl=url;return true;}
+ bool begin(WiFiClient&,const String& url){lastUrl=url;return true;}
  void addHeader(const char*,const String&){}int GET(){++httpCalls;return httpStatus;}void end(){}
 };
 struct FakeDisplay{std::string contents;void fillScreen(int){contents.clear();}void setTextSize(int){}void setCursor(int,int){}void print(const char* text){contents+=text;}};

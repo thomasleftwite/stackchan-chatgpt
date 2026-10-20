@@ -2,6 +2,8 @@ USB不要のホットスポット＋TLS構成を実装中です。[構成・検�
 
 # Stackchan-chatgpt
 
+2026-10-21: Windowsホスト0.5.0-preview.1と端末版を作成。ホットスポットへの接続を信頼する[コード入力不要の方式](docs/HOTSPOT_TRUST.md)へ変更しました。Python39/Node32/C++145/3構成ビルド/EXE自己診断11項目成功。アプリ限定導入、コードなし自動接続、呼びかけ3回再登録と実会話、回答中の口パク・待受復帰、端末リセット後の自動接続と再会話を実機確認済み。長期精度・電源断耐性は未検証です。以下の旧TLS/コード入力方式の説明は過去版の履歴です。
+
 システム構成説明用の [スライド（PowerPoint）](docs/architecture-slide.pptx) はGit管理対象です。[保管・復旧手順](docs/ARCHITECTURE_SLIDE_PRESERVATION.md)を参照してください。
 
 Gemini端末版にもWiFiManagerを統合しました。操作・開発方針・検証範囲は[Wi-Fi設定](docs/WIFI_PROVISIONING.md)を参照してください。COM4へのアプリ限定導入・ハッシュ検証は完了し、設定APと接続保存の実機確認待ちです。
