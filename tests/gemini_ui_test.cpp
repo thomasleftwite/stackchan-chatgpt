@@ -7,6 +7,7 @@
 #pragma warning(disable: 4244 4267)
 #endif
 #include "../src/AudioDevice.cpp"
+#include "../src/FaceUI.cpp"
 #include "../src/LocalGemini.cpp"
 #ifdef _MSC_VER
 #pragma warning(pop)
@@ -23,14 +24,14 @@ int main() {
     fakeBeeps = fakeRecordRequests = 0; M5.BtnA = {}; M5.Display = {};
     configured = item.provisioned; pcOnline = configured; pcSeen = 0;
     WiFi.state = item.wifi; consumed = true; pressedAt = 0;
-    setup();
+    setup(); face.state.wake(fakeTime - 350); updateUi();
     // A real 2.1 second hold then release, as in the user's report.
     while (fakeTime - fakeGestureStart < 2200) loop();
-    const bool stuck = M5.Display.text == "Release to record";
+    const bool stuck = face.state.mode == Mode::Armed;
     const bool safe = fakeRecordRequests == item.expectedRequests;
     // Then a short click, which must not be required to leave the hold prompt.
     while (fakeTime - fakeGestureStart < 2400) loop();
-    const bool matchesReport = stuck && fakeBeeps == 1 && M5.Display.text != "Release to record";
+    const bool matchesReport = stuck && fakeBeeps == 1 && face.state.mode != Mode::Armed;
     std::cout << (stuck || !safe ? "FAIL " : "PASS ")
               << item.name
               << ": hold/release stuck=" << stuck << ", micRequests=" << fakeRecordRequests
@@ -39,7 +40,7 @@ int main() {
     if (item.expectedRequests) {
       // A stale link must show offline without requiring another button click.
       fakeTime += 21000; loop();
-      bool lifecycle = !pcOnline && M5.Display.text.find("PC service stopped") != std::string::npos;
+      bool lifecycle = !pcOnline && M5.Display.text.find("Start PC service") != std::string::npos;
       strlcpy(command, "GEM PING", sizeof(command)); dispatch();
       lifecycle = lifecycle && pcReady();
       strlcpy(command, "GEM STOP", sizeof(command)); dispatch();
@@ -53,10 +54,10 @@ int main() {
   fakeTime = fakeGestureStart = 0; fakeHeldForever = true; fakeDelayBudget = 16000;
   fakeRecordRequests = 0; M5.BtnA = {}; M5.Display = {};
   configured = pcOnline = true; pcSeen = 0; WiFi.state = WL_CONNECTED; consumed = true;
-  setup();
+  setup(); face.state.wake(fakeTime - 350); updateUi();
   bool bounded = true;
   try { while (fakeTime < 2200) loop(); } catch (const std::runtime_error&) { bounded = false; }
-  const bool noStalePrompt = M5.Display.text != "Release to record" && fakeRecordRequests == 0;
+  const bool noStalePrompt = face.state.mode != Mode::Armed && fakeRecordRequests == 0;
   std::cout << (bounded && noStalePrompt ? "PASS " : "FAIL ") << "unreleased button exits with an instruction\n";
   if (!bounded || !noStalePrompt) ++failedTests;
   std::free(input); std::free(output); input = output = nullptr;

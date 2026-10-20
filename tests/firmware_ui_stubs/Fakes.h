@@ -23,6 +23,14 @@ inline uint32_t fakeGestureStart = 0;
 inline bool fakeHeldForever = false;
 inline uint32_t fakeDelayBudget = std::numeric_limits<uint32_t>::max();
 inline unsigned fakeBeeps = 0, fakeRecordRequests = 0;
+inline unsigned fakeMicBegins = 0, fakeFrames = 0;
+inline unsigned fakeCallbackQueues = 0, fakeCaptureGaps = 0;
+inline std::function<bool(int16_t*,size_t,uint32_t)> fakeRecordAction;
+inline bool fakeMicActive = false, fakeCanvasFailure = false;
+inline std::function<bool(uint32_t)> fakeButtonSchedule;
+inline std::function<void()> fakeWsLoop;
+inline uint32_t fakePlaybackMs = 0, fakePlaybackUntil = 0;
+inline uint32_t fakeCueDurationMs = 0, fakeCueEndedAt = 0, fakeMicBeganAt = 0;
 inline uint32_t millis() { return fakeTime; }
 inline void delay(unsigned ms) { fakeTime += ms; if (fakeTime > fakeDelayBudget) throw std::runtime_error("button release wait exceeded budget"); }
 inline size_t strlcpy(char* out, const char* in, size_t capacity) {
@@ -41,7 +49,7 @@ struct FakeButton {
   bool down = false, press = false, release = false;
   void update() {
     const uint32_t now = fakeTime - fakeGestureStart;
-    const bool next = fakeHeldForever || now < 2100 || (now >= 2300 && now < 2360);
+    const bool next = fakeButtonSchedule ? fakeButtonSchedule(fakeTime) : fakeHeldForever || now < 2100 || (now >= 2300 && now < 2360);
     press = next && !down; release = !next && down; down = next;
   }
   bool wasPressed() const { return press; }
@@ -55,25 +63,50 @@ struct FakeDisplay {
   void setCursor(int, int) {}
   void setTextSize(int) {}
   void print(const char* value) { text = value; history.emplace_back(value); }
+  int width() const { return 128; }
+  int height() const { return 128; }
+  std::string svg;
 };
 struct FakeMic {
+  struct Request { int16_t* data; size_t count; uint32_t rate, due; };
+  std::vector<Request> pending;
+  void* releaseArgs = nullptr;
+  void (*onRelease)(void*,void*,size_t) = nullptr;
   struct Config { uint32_t sample_rate = 16000; unsigned magnification = 4; } settings;
   Config config() { return settings; }
   void config(Config value) { settings = value; }
-  bool begin() { return true; }
-  void end() {}
-  void setBufferReleaseCallback(void*, void (*)(void*, void*, size_t)) {}
-  bool record(int16_t*, size_t, uint32_t, bool = false) { ++fakeRecordRequests; return false; }
-  unsigned isRecording() { return 0; }
+  bool begin() { ++fakeMicBegins; fakeMicActive = true; fakeMicBeganAt = fakeTime; return true; }
+  void end() { fakeMicActive = false; pending.clear(); }
+  void setBufferReleaseCallback(void* args, void (*fn)(void*, void*, size_t)) { releaseArgs=args; onRelease=fn; }
+  bool record(int16_t* data, size_t n, uint32_t rate, bool = false) {
+    ++fakeRecordRequests;
+    if(!fakeRecordAction) return false;
+    if(onRelease) {
+      if(pending.size()>=2) return false;
+      pending.push_back({data,n,rate,fakeTime+static_cast<uint32_t>(uint64_t(n)*1000/rate)});
+      ++fakeCallbackQueues; return true;
+    }
+    return fakeRecordAction(data,n,rate);
+  }
+  void tick() {
+    if(pending.empty() || fakeTime<pending.front().due) return;
+    const auto request=pending.front();pending.erase(pending.begin());
+    if(!fakeRecordAction(request.data,request.count,request.rate)) return;
+    if(onRelease) onRelease(releaseArgs,request.data,request.count);
+    if(fakeMicActive && pending.empty()) ++fakeCaptureGaps;
+  }
+  unsigned isRecording() { return static_cast<unsigned>(pending.size()); }
+  bool isRunning() const { return fakeMicActive; }
 };
 struct FakeSpeaker {
   bool begin() { return true; }
-  void end() {}
-  void stop() {}
+  void end() { fakePlaybackUntil = 0; }
+  void stop() { fakePlaybackUntil = 0; }
   void setVolume(int) {}
-  bool tone(int, int) { ++fakeBeeps; return true; }
-  bool isPlaying() const { return false; }
-  bool playRaw(const int16_t*, size_t, unsigned, bool, int, int) { return true; }
+  bool tone(int, int) { ++fakeBeeps; fakeCueEndedAt = fakeTime + fakeCueDurationMs;
+    if(fakeCueDurationMs) fakePlaybackUntil = fakeCueEndedAt; return true; }
+  bool isPlaying() const { return fakePlaybackUntil && static_cast<int32_t>(fakePlaybackUntil - fakeTime) > 0; }
+  bool playRaw(const int16_t*, size_t, unsigned, bool, int, int) { fakePlaybackUntil = fakeTime + fakePlaybackMs; return true; }
 };
 struct FakeM5 {
   struct Config { bool internal_spk = false, internal_mic = false; struct { bool atomic_echo = false; } external_speaker; unsigned serial_baudrate = 0; };
@@ -83,9 +116,44 @@ struct FakeM5 {
   FakeSpeaker Speaker;
   Config config() { return {}; }
   void begin(Config) {}
-  void update() { BtnA.update(); }
+  void update() { BtnA.update(); Mic.tick(); }
 };
 inline FakeM5 M5;
+// Record the actual renderer's drawing commands as SVG for offline inspection.
+class M5Canvas {
+ public:
+  explicit M5Canvas(FakeDisplay*) {}
+  void setColorDepth(int) {}
+  void setPsram(bool) {}
+  void* createSprite(int, int) { return fakeCanvasFailure ? nullptr : this; }
+  int width() const { return 128; }
+  int height() const { return 128; }
+  void setTextSize(int) {}
+  void setTextColor(uint16_t color) { textColor = color; }
+  void fillScreen(int) { body = "<rect width='128' height='128' fill='black'/>"; labels.clear(); }
+  void drawCenterString(const char* text, int x, int y) {
+    labels += std::string(text) + "\n";
+    body += "<text x='" + std::to_string(x) + "' y='" + std::to_string(y + 8) +
+      "' text-anchor='middle' font-family='monospace' font-size='10' fill='" + color(textColor) + "'>" + text + "</text>";
+  }
+  void fillRoundRect(int x, int y, int w, int h, int radius, uint16_t c) {
+    body += "<rect x='" + std::to_string(x) + "' y='" + std::to_string(y) + "' width='" + std::to_string(w) +
+      "' height='" + std::to_string(h) + "' rx='" + std::to_string(radius) + "' fill='" + color(c) + "'/>";
+  }
+  void fillRect(int x, int y, int w, int h, uint16_t c) { fillRoundRect(x,y,w,h,0,c); }
+  void fillCircle(int x, int y, int r, uint16_t c) {
+    body += "<circle cx='" + std::to_string(x) + "' cy='" + std::to_string(y) + "' r='" + std::to_string(r) + "' fill='" + color(c) + "'/>";
+  }
+  void drawLine(int x, int y, int xx, int yy, uint16_t c) {
+    body += "<path d='M " + std::to_string(x) + " " + std::to_string(y) + " L " + std::to_string(xx) + " " + std::to_string(yy) + "' stroke='" + color(c) + "'/>";
+  }
+  void pushSprite(int, int) { ++fakeFrames; M5.Display.text = labels; M5.Display.history.push_back(labels);
+    M5.Display.svg = "<svg xmlns='http://www.w3.org/2000/svg' width='128' height='128' viewBox='0 0 128 128'>" + body + "</svg>"; }
+ private:
+  std::string body, labels;
+  uint16_t textColor = 0xFFFF;
+  static std::string color(uint16_t c) { char out[8]; std::snprintf(out,sizeof(out),"#%02x%02x%02x", ((c>>11)&31)*255/31, ((c>>5)&63)*255/63, (c&31)*255/31); return out; }
+};
 struct FakeWifi {
   int state = 0;
   int status() const { return state; }
@@ -104,7 +172,7 @@ class WebSocketsClient {
   void setExtraHeaders(const char*) {}
   bool sendTXT(const char*) { return true; }
   bool sendBIN(uint8_t*, size_t) { return true; }
-  void loop() {}
+  void loop() { if (fakeWsLoop) fakeWsLoop(); }
   void disconnect() {}
 };
 struct JsonVariant {

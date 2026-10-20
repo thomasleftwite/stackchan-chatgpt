@@ -8,7 +8,13 @@
 
 その後、実機COM4もGemini端末版R01 / protocol v2へ更新し、**実マイク→PC→Gemini→24kHz回答の端末再生に成功、ユーザーが日本語回答を確認した。** [実機記録](../docs/GEMINI_DEVICE_VALIDATION_2026-10-16.md)を参照。現段階は1接続につき1質問・1回答で、会話履歴、連続録音、発話割込みは含まない。
 
-実機向けの起動は案件ルートの `Start-Gemini-Device.cmd`。`local-gemini.ts` / `tools/run_gemini_device.py` が家庭内LANの空きポートとランダム端末トークンを用意しUSB経由で端末RAMへ設定する。現在の端末R05はGemini PC readyを確認→長押し→Release to recordで離す→開始音後に約1秒静かに待つ→Speak now表示後に発話。約0.7秒無音で送信する可変長で、上限は前後の無音込み5秒。準備中に話すと環境音測定が影響を受けるので表示を待つ。[可変長の検証](../docs/VARIABLE_UTTERANCE_VALIDATION_2026-10-16.md)を参照。PC画面でstop、または最長約10分で停止。PC停止等でRelease表示に残る症状を修正し、可変長の実質問にも成功した。[録音開始の修正](../docs/RECORD_START_FIX_2026-10-16.md)。ツールは5秒ごとにGEM PING、正常停止時にGEM STOPを送る。端末は20秒で稼働通知が切れたことを表示する。前回の管理下の試験はstop済み。その後ユーザーが起動用ファイルの一度の終了と、再起動後の正常動作を報告した。終了原因は未解明で、約10分の期限終了との区別も未確認。[開発進捗](../docs/DEVELOPMENT_PROGRESS_2026-10-16.md)を参照。以下の `Start-Gemini-PC.cmd` はPC単独向けでUSB設定をしない。
+実機向けの起動は案件ルートの `Start-Gemini-Device.cmd`。`local-gemini.ts` / `tools/run_gemini_device.py` が家庭内LANの空きポートとランダム端末トークンを用意しUSB経由で端末RAMへ設定する。R05はGemini PC readyを確認→長押し→Release to recordで離す→開始音後に約1秒静かに待つ→Speak now表示後に発話。約0.7秒無音で送信する可変長で、上限は前後の無音込み5秒。準備中に話すと環境音測定が影響を受けるので表示を待つ。[可変長の検証](../docs/VARIABLE_UTTERANCE_VALIDATION_2026-10-16.md)を参照。PC画面でstop、または最長約10分で停止。PC停止等でRelease表示に残る症状を修正し、可変長の実質問にも成功した。[録音開始の修正](../docs/RECORD_START_FIX_2026-10-16.md)。ツールは5秒ごとにGEM PING、正常停止時にGEM STOPを送る。端末は20秒で稼働通知が切れたことを表示する。前回の管理下の試験はstop済み。その後ユーザーが起動用ファイルの一度の終了と、再起動後の正常動作を報告した。終了原因は未解明で、約10分の期限終了との区別も未確認。[開発進捗](../docs/DEVELOPMENT_PROGRESS_2026-10-16.md)を参照。以下の `Start-Gemini-PC.cmd` はPC単独向けでUSB設定をしない。
+
+現在の実機は顔表示Stage1 R01へ更新済み。起動直後はSleeping、短押しでReady、PC onlineを確認してから長押し・離す操作で質問する。Readyで短押しするとスリープへ戻る。まだウェイクワードを検出しない。新ファームウェアでの実機音声回帰は未実施、顔表示と短押し切替はユーザー確認済み。[段階開発](../docs/FACE_MODES_STAGE1.md)を参照。上記R05の会話成功は前段の結果。
+
+## PC監視ツールの更新（2026-10-19）
+
+現在の端末は呼びかけ統合Stage2 R01。PC監視レポートはversion 2で、固定分類の終了理由/段階/経過時間、子サーバ終了コード、端末停止応答の有無を記録する。USBの分割行を復元し、最大512 byteずつ読み込む。正常期限/stopとUSB失敗/停止未確認を区別し、例外本文やトークンは出さない。診断ホスト試験は `python -m unittest discover -s tests -p test_gemini_coordinator.py -v` を案件ルートで実行する。USB接触不良の可能性についての原因究明は利用者指示で保留。[検証と未確認範囲](../docs/USB_MONITOR_DIAGNOSTICS_2026-10-19.md)。
 
 ## 起動
 
@@ -70,3 +76,6 @@ HTTPサーバの `/live` upgrade前に `Authorization: Bearer <DEVICE_TOKEN>` �
 `local-lan.ts` と `tools/run_lan_probe.py` は実機LAN診断専用。150フレーム限定で16→24kHz補間した自声を端末で自然に再生できた。[LAN検証記録](../docs/LAN_PCM_VALIDATION_2026-10-16.md)を参照。この成功と今回のPC/Gemini試験を合わせても、実機Gemini統合の合格には数えない。
 
 Cloud Run用Dockerfileは従来echoだけの許可リストで、新しいGemini PC機能を含まない。Dockerビルド・公開は未検証。[クラウド検討](../docs/AI_STUDIO_CLOUD_FEASIBILITY_2026-10-16.md)と[構成案](../docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md)は履歴として保持する。
+
+
+2026-10-19追記: 子サーバ終了/Ctrl+CでもUSBを閉じる前に端末へGEM STOPを送るよう修正。診断16件成功。強制終了/USB切断は端末側の20秒期限で検知する。利用者はPC単独用Start-Gemini-PC.cmdで20秒以上Onlineが残ったと報告し、追加監視せず次回問いかけ時の接続結果で表示更新する現状を許容。原因解明/停止復帰の合格とは区別する。実機の起動/再設定にはStart-Gemini-Device.cmdを使う。[確認記録](../docs/PC_SERVICE_STATUS_2026-10-19.md)。
