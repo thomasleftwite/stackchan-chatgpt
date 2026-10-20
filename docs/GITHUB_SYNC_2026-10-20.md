@@ -22,4 +22,8 @@
 
 端末書込み、実マイク取得、外部Gemini呼出しは実施していない。今回のビルダー修正後の配布EXE再生成は未実施。別PCのUSB/実会話、長期検出精度、電源断耐性、保留中のUSB原因究明は既存記録の未検証/保留を維持する。配布物releases/と秘密設定はpushしない。
 
-push/merge結果は以下へ追記する。
+## 完了結果
+
+2026-10-20 10:33 JST、[PR #4](https://github.com/thomasleftwite/stackchan-chatgpt/pull/4)をmainへmerge完了。作業コミット`58de3c0dc4bbb01459fd6b0f4927517de2a52a05`、mergeコミット`93a90718a0936f974dd4ebcb7197fb0a94074455`。未pushだった15コミットと今回の1コミットを統合。競合なし、GitHub側の必須チェック設定なし。
+
+ローカルmainをfast-forwardし、merge後のツリーが検証済み作業コミットと一致すること、秘密設定2件の内容保持・除外・未追跡を確認した。この完了記録とTODOは追加の文書コミットとしてmainへpushする。
