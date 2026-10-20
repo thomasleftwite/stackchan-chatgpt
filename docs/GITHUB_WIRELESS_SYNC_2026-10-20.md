@@ -21,4 +21,4 @@ releases/StackchanHost-0.4.0-preview.1-win-x64.zip（Git除外、別途利用者
 
 ## 統合
 
-PR作成とmain統合を実施し、結果を追記する。
+本変更は[PR #5](https://github.com/thomasleftwite/stackchan-chatgpt/pull/5)で公開。mainへの統合状態とマージコミットはPRの履歴で確認する。今回の依頼では新ファームウェアの実機導入やWindows通信設定の変更は行わない。
