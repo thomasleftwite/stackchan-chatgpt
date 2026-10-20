@@ -17,3 +17,22 @@ if old in source:
     header.write_text(source.replace(old, new, 1), encoding="utf-8")
 elif new not in source:
     raise RuntimeError("WebSockets source changed: review the frame-limit patch")
+
+
+# WebSockets 2.7.3 does not expose WiFiClientSecure PSK configuration. Add the
+# pinned ESP32 API call only in the wireless firmware; never use setInsecure there.
+client = header.with_name("WebSocketsClient.cpp")
+old_psk = """            } else if(!SSL_FINGERPRINT_IS_SET) {
+                _client.ssl->setInsecure();"""
+new_psk = """            } else if(!SSL_FINGERPRINT_IS_SET) {
+#ifdef STACKCHAN_WIRELESS
+                extern const char* stackchanTlsPsk();
+                _client.ssl->setPreSharedKey("stackchan-v1", stackchanTlsPsk());
+#else
+                _client.ssl->setInsecure();
+#endif"""
+source = client.read_text(encoding="utf-8")
+if new_psk not in source:
+    if source.count(old_psk) != 1:
+        raise RuntimeError("WebSockets PSK extension changed: review pinned source")
+    client.write_text(source.replace(old_psk,new_psk,1),encoding="utf-8")

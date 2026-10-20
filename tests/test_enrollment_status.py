@@ -24,6 +24,13 @@ class EnrollmentStatusTests(unittest.TestCase):
         self.assertIsNotNone(STATUS.fullmatch('GEM ENROLL STEP verify'))
         self.assertIsNotNone(STATUS.fullmatch('GEM ENROLL AUDIO samples=9600 voiced=3200 ms=600'))
 
+    def test_wifi_diagnostics_only_accept_fixed_events(self):
+        for value in ('GEM PAIR READY','GEM PAIR REQUIRED','GEM LINK TLS','GEM LINK USB'):
+            self.assertIsNotNone(STATUS.fullmatch(value))
+        for event in ('SETUP','AP_JOIN','AP_LEAVE','AP_STOP'):
+            self.assertIsNotNone(STATUS.fullmatch('GEM WIFI '+event))
+            self.assertIsNone(STATUS.fullmatch('GEM WIFI '+event+' private-data'))
+
     def test_extra_text_and_unbounded_values_are_rejected(self):
         for value in ('GEM ENROLL CAL rms=quiet threshold=4800 ms=1100 gap=700',
                       'GEM ENROLL CAL rms=1600 threshold=4800 ms=1100 gap=700 extra=data',

@@ -1,4 +1,5 @@
 """Explicit-allowlist Windows x64 one-file build. Never stage project data/.env."""
+import argparse
 import hashlib
 import importlib.metadata
 import json
@@ -14,10 +15,10 @@ import uuid
 ROOT=Path(__file__).resolve().parents[1]
 BUILD=ROOT/'.packaging'
 STAGE=BUILD/'stage/runtime'
-VERSION='0.3.0-preview.1'
+VERSION='0.4.0-preview.1'
 OUT=ROOT/'releases'/f'StackchanHost-{VERSION}-win-x64'
 JS=['local-gemini','gemini-pc','gemini-server','gemini-isolated','gemini-worker',
-    'gemini-turn','private-config','protocol','gemini-probe-client','host-self-check']
+    'wireless-host','gemini-turn','private-config','protocol','gemini-probe-client','host-self-check']
 FLAGS=getattr(subprocess,'CREATE_NO_WINDOW',0)
 
 def run(args,**kwargs):
@@ -41,7 +42,9 @@ def fresh_stage(stage, build):
 def main():
     if os.name!='nt' or sys.maxsize<2**32: raise SystemExit('Windows x64 required')
     OUT.mkdir(parents=True,exist_ok=True); fresh_stage(STAGE,BUILD)
-    node=Path(shutil.which('node') or '')
+    parser=argparse.ArgumentParser();parser.add_argument('--node',type=Path)
+    args=parser.parse_args()
+    node=args.node.resolve() if args.node else Path(shutil.which('node') or '')
     version=subprocess.check_output([str(node),'--version'],text=True,creationflags=FLAGS).strip()
     if version!='v24.15.0': raise SystemExit('Review the pinned Node runtime version first')
     run(['npm.cmd','run','build'],cwd=ROOT/'server')
@@ -79,14 +82,14 @@ def main():
     files=[]
     for path in sorted(STAGE.rglob('*')):
         if not path.is_file(): continue
-        if path.name.lower() in ('.env','secrets.json','bridge.local.json','settings.json'):
+        if path.name.lower() in ('.env','secrets.json','bridge.local.json','settings.json','pairing.json'):
             raise SystemExit('Private filename in staged payload')
         data=path.read_bytes()
         if any(value in data for value in private): raise SystemExit('Private value in staged payload')
         files.append({'path':str(path.relative_to(STAGE)).replace('\\','/'),'size':len(data),'sha256':hashlib.sha256(data).hexdigest()})
     manifest={'version':VERSION,'node':version,'python':sys.version.split()[0],
         'serverLockSha256':sha(ROOT/'server/package-lock.json'),'payload':files,
-        'launcherSources':{name:sha(ROOT/name) for name in ('desktop/host_app.py','desktop/settings.py','desktop/network.py','tools/run_gemini_device.py','tools/run_lan_probe.py')},
+        'launcherSources':{name:sha(ROOT/name) for name in ('desktop/host_app.py','desktop/settings.py','desktop/network.py','desktop/wireless.py','tools/run_gemini_device.py','tools/run_lan_probe.py')},
         'privateValueMatches':0,'firmwareIncluded':False,'driverInstallerIncluded':False}
     (STAGE/'build-manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     run([sys.executable,'-m','PyInstaller','--noconfirm','--onefile','--windowed','--noupx',

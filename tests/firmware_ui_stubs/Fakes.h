@@ -154,9 +154,12 @@ class M5Canvas {
   uint16_t textColor = 0xFFFF;
   static std::string color(uint16_t c) { char out[8]; std::snprintf(out,sizeof(out),"#%02x%02x%02x", ((c>>11)&31)*255/31, ((c>>5)&63)*255/63, (c&31)*255/31); return out; }
 };
+enum WiFiEvent_t { ARDUINO_EVENT_WIFI_AP_STACONNECTED, ARDUINO_EVENT_WIFI_AP_STADISCONNECTED, ARDUINO_EVENT_WIFI_AP_STOP };
 struct FakeWifi {
+  void onEvent(void (*)(WiFiEvent_t)) {}
   int state = 0;
   int status() const { return state; }
+  void setAutoReconnect(bool) {}
   void persistent(bool) {}
   void mode(int) {}
   void begin() {}

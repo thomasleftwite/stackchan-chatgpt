@@ -9,10 +9,14 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'desktop'))
 from settings import valid_key,valid_model,save_settings,load_settings
 from network import is_lan
-from host_app import runtime_env
+from host_app import runtime_env, HostApp
 from build_windows import fresh_stage
 
 class HostSettingsTest(unittest.TestCase):
+    def test_wifi_failure_identifies_device_network(self):
+        text=HostApp.friendly(None, 'Gemini device session exit {"reason":"wifi_failed"}')
+        self.assertIn("端末がWi-Fiに接続できません",text)
+
     def folder(self):
         root=Path(__file__).resolve().parents[1]/'.pio/desktop-tests'
         root.mkdir(parents=True,exist_ok=True)
