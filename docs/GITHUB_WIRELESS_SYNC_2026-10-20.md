@@ -12,7 +12,7 @@ Gemini端末版のWiFiManager（固定APパスワード12345678、時間制限�
 - Python34件、サーバー28件（Node24.15.0）、C++144項目、3構成ビルド成功。
 - 最終配布EXEの自己診断10項目成功（TLS音声往復を含む）、外部API0回。
 - ZIPはEXEと関連資料の7ファイル。実行モジュールはEXEへ内蔵。SHA256SUMSとの整合、実キー一致0、秘密設定・登録・音声ファイルの非同梱を確認。
-- 公開候補ソースで実キー/既知キー形式一致0。秘密設定2件は除外・未追跡を確認し、同期後の保持確認用ハッシュはGit除外領域に保存。
+- 公開ツリー172ファイル・新規履歴34 blobを検査し、実キー/既知キー形式一致0。この作業環境にはdata/secrets.jsonとdata/bridge.local.jsonは存在せず、追跡もされていない。Windowsホストのユーザー別保存設定はGit対象外で、実キーはメモリ内比較だけに使用。同期後の設定保持確認用ハッシュはGit除外領域に保存。
 - ZIP/EXE/.pio/.packaging/node_modules/秘密設定はGitへ追加しない。利用者の既存architecture-slide.pptxとarchitecture-slide.svgも変更・追加しない。
 
 ## 配布物
