@@ -1,5 +1,7 @@
 # 無線版の開発再開と実機導入
 
+> 0.4系の時点別履歴。現在は0.5系で解決済みの項目があるため、再開は [現行要約](RESUME.md) と [現行方式](HOTSPOT_TRUST.md) を優先する。
+
 2026-10-21 / R08。対象: AtomS3R + Atomic Voice Base A149、Arduino-ESP32 / PlatformIO、Windowsホスト0.4.0-preview.2（APIキー再入力後の手動会話成功、呼びかけ再登録を進行中）。
 
 ## GitHubとの整合性・スライド
