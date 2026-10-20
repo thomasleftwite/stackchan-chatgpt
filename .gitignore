@@ -17,3 +17,6 @@ data/bridge.local.json.*
 # Portable Windows host build outputs (never package private project data)
 .packaging/
 releases/
+
+# Keep the restored architecture slide under version control.
+!/docs/architecture-slide.pptx

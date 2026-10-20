@@ -126,6 +126,12 @@ Gemini端末版R07にWiFiManagerを統合しCOM4アプリ限定書込み/ハッ�
 2026-10-20追記: 利用者指示で設定APの180秒制限を廃止し標準WiFiManagerの無期限設定へ変更。接続失敗後も再入力可能。USBのAP_JOIN/AP_LEAVE/AP_STOP診断を追加。Python30件成功、Android接続の切断原因は未確定。
 
 
+## 構成説明スライドの保管（2026-10-20）
+
+| 状態 | 項目 | 完了日 | 成果物・検証 |
+|---|---|---|---|
+| 完了 | 復元PPTXのGit履歴保存と所在・復旧手順の整備 | 2026-10-20 | docs/architecture-slide.pptx、docs/ARCHITECTURE_SLIDE_PRESERVATION.md R01、READMEリンク、.gitignore除外解除。ZIP/XML・SHA256一致・Git保存を確認。表示確認・GitHubへのpushは未実施 |
+
 ## USB不要のホットスポット構成（2026-10-20）
 
 利用者選択: PCは共有Wi-Fi、端末はPCのモバイルホットスポット。固定IPや毎起動のUSB転送を廃止し、初回画面コード登録/端末固有鍵の永続化/TLS1.2 DHE-PSK/PCゲートウェイTCP48443の構成を実装。USB診断と既存機能を維持。Python34/サーバー28/C++144項目/3構成ビルド/最終EXE自己診断10項目成功。配布版0.4.0-preview.1を生成。

@@ -2,6 +2,8 @@ USB不要のホットスポット＋TLS構成を実装中です。[構成・検�
 
 # Stackchan-chatgpt
 
+システム構成説明用の [スライド（PowerPoint）](docs/architecture-slide.pptx) はGit管理対象です。[保管・復旧手順](docs/ARCHITECTURE_SLIDE_PRESERVATION.md)を参照してください。
+
 Gemini端末版にもWiFiManagerを統合しました。操作・開発方針・検証範囲は[Wi-Fi設定](docs/WIFI_PROVISIONING.md)を参照してください。COM4へのアプリ限定導入・ハッシュ検証は完了し、設定APと接続保存の実機確認待ちです。
 
 再開時は [短い要約](docs/RESUME.md) を最初に参照してください。
