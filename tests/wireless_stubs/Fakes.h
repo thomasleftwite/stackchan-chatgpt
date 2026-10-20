@@ -13,7 +13,7 @@ public:
  String(unsigned x):std::string(std::to_string(x)){}
 };
 inline uint32_t fakeNow=1000;inline uint32_t millis(){return fakeNow;}
-inline size_t strlcpy(char* out,const char* in,size_t n){auto size=strlen(in);if(n){strncpy(out,in,n-1);out[n-1]=0;}return size;}
+inline size_t strlcpy(char* out,const char* in,size_t n){auto size=strlen(in);if(n){auto copied=std::min(size,n-1);memcpy(out,in,copied);out[copied]=0;}return size;}
 inline int entropy=0;inline void esp_fill_random(void* out,size_t n){auto* p=static_cast<uint8_t*>(out);for(size_t i=0;i<n;++i)p[i]=static_cast<uint8_t>(++entropy);}
 inline std::map<std::string,std::string> storage;
 struct Preferences {
