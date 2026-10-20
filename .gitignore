@@ -13,3 +13,7 @@ server/dist/
 !.env.example
 data/bridge.local.json
 data/bridge.local.json.*
+
+# Portable Windows host build outputs (never package private project data)
+.packaging/
+releases/

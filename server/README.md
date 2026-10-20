@@ -12,6 +12,10 @@
 
 現在の実機は顔表示Stage1 R01へ更新済み。起動直後はSleeping、短押しでReady、PC onlineを確認してから長押し・離す操作で質問する。Readyで短押しするとスリープへ戻る。まだウェイクワードを検出しない。新ファームウェアでの実機音声回帰は未実施、顔表示と短押し切替はユーザー確認済み。[段階開発](../docs/FACE_MODES_STAGE1.md)を参照。上記R05の会話成功は前段の結果。
 
+## PC監視ツールの更新（2026-10-19）
+
+現在の端末は呼びかけ統合Stage2 R01。PC監視レポートはversion 2で、固定分類の終了理由/段階/経過時間、子サーバ終了コード、端末停止応答の有無を記録する。USBの分割行を復元し、最大512 byteずつ読み込む。正常期限/stopとUSB失敗/停止未確認を区別し、例外本文やトークンは出さない。診断ホスト試験は `python -m unittest discover -s tests -p test_gemini_coordinator.py -v` を案件ルートで実行する。USB接触不良の可能性についての原因究明は利用者指示で保留。[検証と未確認範囲](../docs/USB_MONITOR_DIAGNOSTICS_2026-10-19.md)。
+
 ## 起動
 
 Node.js 22.9.0以降（試験環境24.15.0、npm 11.14.0）を使用する。このフォルダで初回のみ依存を準備する。
@@ -72,3 +76,6 @@ HTTPサーバの `/live` upgrade前に `Authorization: Bearer <DEVICE_TOKEN>` �
 `local-lan.ts` と `tools/run_lan_probe.py` は実機LAN診断専用。150フレーム限定で16→24kHz補間した自声を端末で自然に再生できた。[LAN検証記録](../docs/LAN_PCM_VALIDATION_2026-10-16.md)を参照。この成功と今回のPC/Gemini試験を合わせても、実機Gemini統合の合格には数えない。
 
 Cloud Run用Dockerfileは従来echoだけの許可リストで、新しいGemini PC機能を含まない。Dockerビルド・公開は未検証。[クラウド検討](../docs/AI_STUDIO_CLOUD_FEASIBILITY_2026-10-16.md)と[構成案](../docs/GEMINI_LIVE_ARCHITECTURE_REVIEW.md)は履歴として保持する。
+
+
+2026-10-19追記: 子サーバ終了/Ctrl+CでもUSBを閉じる前に端末へGEM STOPを送るよう修正。診断16件成功。強制終了/USB切断は端末側の20秒期限で検知する。利用者はPC単独用Start-Gemini-PC.cmdで20秒以上Onlineが残ったと報告し、追加監視せず次回問いかけ時の接続結果で表示更新する現状を許容。原因解明/停止復帰の合格とは区別する。実機の起動/再設定にはStart-Gemini-Device.cmdを使う。[確認記録](../docs/PC_SERVICE_STATUS_2026-10-19.md)。

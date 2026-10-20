@@ -115,6 +115,29 @@ int main() {
   check(quiet && spoke && played && face.state.mode == Mode::WakeWait && fakeMicBegins == 0,
         "actual transport and playback keep microphone off through return to ready");
 
+  resetRuntime(); fakeWakeAvailable = true; awake(); fakePlaybackMs = 250;
+  const auto activePolls = fakeWakePolls;
+  bool transactionQuiet = true; unsigned liveSteps = 0; uint32_t playbackDoneAt = 0;
+  fakeWsLoop = [&]() {
+    ++liveSteps;
+    transactionQuiet = transactionQuiet && !fakeMicActive && fakeWakePolls == activePolls;
+    ready = true; acked = sent;
+    if (inputEnded && !thinking) { thinking = true; face.set(Mode::Thinking); }
+    if (thinking && liveSteps > 25) { outputStarted = outputEnded = true; reply.total = reply.received = 2400; }
+    if (played) { playbackDoneAt = fakeTime; complete = closed = true; }
+  };
+  run(false); fakeWsLoop = {};
+  check(transactionQuiet && played && !fakeMicActive && fakeWakePolls == activePolls &&
+        fakeTime - playbackDoneAt >= 700,
+        "enabled detector stays stopped across transport playback and 700ms cooldown");
+  loop();
+  check(fakeMicActive && fakeWakePolls > activePolls, "detection restarts only after complete transaction returns");
+  strlcpy(command, "GEM STOP", sizeof(command)); dispatch(); loop();
+  check(!fakeMicActive && !pcReady(), "explicit PC stop halts an active detector");
+  configured = pcOnline = true; pcSeen = fakeTime; loop();
+  check(fakeMicActive, "PC configuration recovery resumes waiting detector");
+  fakeWakeAvailable = false; wakeInput.stop(audio);
+
   resetRuntime(); awake(); fakePlaybackMs = 2000;
   const auto cancelStart = fakeTime;
   fakeButtonSchedule = [cancelStart](uint32_t now) { return now - cancelStart >= 80 && now - cancelStart < 140; };
