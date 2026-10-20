@@ -1,6 +1,6 @@
 # 無線版の開発再開と実機導入
 
-2026-10-21 / R01。対象: AtomS3R + Atomic Voice Base A149、Arduino-ESP32 / PlatformIO、Windowsホスト0.4.0-preview.1。
+2026-10-21 / R02。対象: AtomS3R + Atomic Voice Base A149、Arduino-ESP32 / PlatformIO、Windowsホスト0.4.0-preview.1。
 
 ## GitHubとの整合性・スライド
 
@@ -38,11 +38,20 @@ PlatformIO `run -e atoms3r-gemini-device` 成功。固定依存は `platformio.i
 
 `tools/flash_application_only.py` に候補・SHA256・実機表を指定し、COM4の0x10000へ書込み成功。`Hash of data verified` を確認。書換え範囲は0x10000〜0x198FFFで、NVS/SPIFFS/パーティション表は対象外。実際の設定・登録読込みは起動応答で別途確認する。
 
-直後の20秒間のGEM INFO照会では応答を取得できず、起動完了は未確認。生ログ・認証鍵を保存せず、固定状態と数値だけを `.pio/device-check/wireless-resume-boot-20261021-r01.json` へ記録。利用者へリセット短押しを依頼中。
+書込み直後のGEM INFO照会では応答を取得できず、利用者へリセット短押しを依頼した。利用者の実施回答後、COM4で以下を確認し、`.pio/device-check/wireless-resume-boot-20261021-r03.json` へ固定状態と数値のみ保存した。生ログ・認証鍵は取得・保存していない。
+
+- `GEM READY v=2 input=16000 output=24000 mono=1 bits=16`: アプリ起動・音声形式。
+- `GEM WAKE available=1`: 保存済み呼びかけテンプレートの読込み。実際の検出精度は別途。
+- `GEM LINK TLS`: 無線TLSモード。
+- `GEM STATE configured=1 wifi=1 pc=0`: Wi-Fi接続済み、PC認証接続は未成立。ホットスポット接続済みという意味ではない。
+- `GEM UI stage=3 mode=2 asleep=1 mic=0`: スリープ・マイク停止。
+- `GEM RESULT NONE`: この起動で会話試験未実施。20秒の観察中に起動障害を示す固定文字列は検出されなかった。
+
+PCのWi-Fi Direct仮想アダプタはDownで、ホットスポット側の接続は未稼働。利用者へ2.4GHzホットスポットの有効化を依頼中。SSID・パスワード・登録コードをチャットへ送らないよう案内。
 
 ## 次の検証
 
-1. リセット後にGEM INFOで起動、TLSモード、Wi-Fi、呼びかけ登録の読込み、待機中マイク停止を確認。
+1. 起動、TLSモード、Wi-Fi、呼びかけ登録の読込み、スリープ中マイク停止は確認済み。
 2. PCの2.4GHzホットスポットと端末の接続先を設定。Windows設定変更は別途確認してから行う。
 3. 登録コードは端末画面からPCホストへ直接入力する。チャット・記録へ送らない。
 4. 必要な受信許可は `tools/configure_wireless_firewall.ps1` の計画表示でホットスポット側だけを対象に確認してから適用する。

@@ -130,8 +130,8 @@ Gemini端末版R07にWiFiManagerを統合しCOM4アプリ限定書込み/ハッ�
 
 | 状態 | 項目 | 完了日 | 成果物・検証 |
 |---|---|---|---|
-| 完了 | GitHub整合性確認とPC上の再検証 | 2026-10-21 | docs/WIRELESS_RESUME_2026-10-21.md R01。リモートmain3283ad2と開発基点一致、ローカルにスライド保存1件。Python34/Node28/C++144/EXE自己診断10項目成功、API0回。テスト用文字列コピーをMSVC対応 |
-| 導入完了・起動確認待ち | 無線版のアプリ限定導入 | 2026-10-21（書込み） | .pio/firmware-snapshots/gemini-wireless-resume-20261021-r01.bin、SHA256先頭16799F01、1,606,672 bytes。利用者明示承認、COM4の表確認/0x10000への書込みハッシュ検証成功。リセット短押しを依頼中 |
+| 完了 | GitHub整合性確認とPC上の再検証 | 2026-10-21 | docs/WIRELESS_RESUME_2026-10-21.md R02。リモートmain3283ad2と開発基点一致、ローカルにスライド保存1件から再開。Python34/Node28/C++144/EXE自己診断10項目成功、API0回。テスト用文字列コピーをMSVC対応 |
+| 完了（導入・基本起動） | 無線版のアプリ限定導入と起動 | 2026-10-21 | .pio/firmware-snapshots/gemini-wireless-resume-20261021-r01.bin、SHA256先頭16799F01、1,606,672 bytes。利用者明示承認、COM4の表確認/0x10000への書込みハッシュ検証成功。リセット後にREADY/TLS/wifi=1/WAKE available=1/asleep=1/mic=0を確認。pc=0、実会話は未実施 |
 | 未実施 | 実機ホットスポット/TLS会話/再起動保持 | — | 同記録の次手順。Windows設定は未変更、端末起動確認後に段階検証 |
 
 ## 構成説明スライドの保管（2026-10-20）
