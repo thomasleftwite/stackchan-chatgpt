@@ -116,3 +116,17 @@
 |---|---|---|---|
 | 完了 | 開発環境不要の実機用ホストEXE作成 | 2026-10-19 | desktop/README.md、releases/StackchanHost-0.3.0-preview.1-win-x64/StackchanHost.exe、同版ZIP。Node/Python/Tk/pyserial/実行依存同梱、APIキーなし。単独コピー/PATH制限で自己診断8項目PASS、設定7/監視17/サーバ26件成功。配布入力の実キー一致0、アーカイブ機密名0 |
 | 未確認 | 移行先Windows PCでの起動・USB認識・実会話 | — | 同版VALIDATION.md。現PCの模擬/単独コピー試験とは区別。移行先でGeminiキー入力とCOM/LAN選択、必要なWindows接続許可を確認 |
+
+
+## Wi-Fi設定機能の維持・追加（2026-10-20）
+
+Gemini端末版R07にWiFiManagerを統合しCOM4アプリ限定書込み/ハッシュ検証成功。Wi-Fi接続失敗時のAP、画面ボタンを押した起動での強制AP、180秒上限、保存済み設定非消去、USBへのパスワード出力なし。Python29件/端末ビルド成功。C++追加回帰はSDK不足で未実行、実機AP/設定保存/会話は確認待ち。詳細docs/WIFI_PROVISIONING.md。
+確認済み機能を通常版に維持し、機能削除が必要な場合は理由を説明する。通常通信はWi-Fi、補足診断はUSB。USB診断経路は残す。PC通知/稼働通知のUSB依存の解消は後段。
+
+2026-10-20追記: 利用者指示で設定APの180秒制限を廃止し標準WiFiManagerの無期限設定へ変更。接続失敗後も再入力可能。USBのAP_JOIN/AP_LEAVE/AP_STOP診断を追加。Python30件成功、Android接続の切断原因は未確定。
+
+
+## USB不要のホットスポット構成（2026-10-20）
+
+利用者選択: PCは共有Wi-Fi、端末はPCのモバイルホットスポット。固定IPや毎起動のUSB転送を廃止し、初回画面コード登録/端末固有鍵の永続化/TLS1.2 DHE-PSK/PCゲートウェイTCP48443の構成を実装。USB診断と既存機能を維持。Python34/サーバー28/C++144項目/3構成ビルド/最終EXE自己診断10項目成功。配布版0.4.0-preview.1を生成。
+新ファームウェアの実機書込みは自動承認審査で拒否され、明示的な導入承認待ち。Windows設定は未変更。実機ペアリング・会話・再起動後自動接続は未確認。詳細docs/WIRELESS_HOST.md。

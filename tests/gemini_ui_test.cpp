@@ -14,6 +14,13 @@
 #endif
 #include <iostream>
 
+void setupWithoutBootButton() {
+  // The normal firmware now uses a held boot button for Wi-Fi provisioning.
+  // These cases test a later hold/release, not that separate boot gesture.
+  fakeButtonSchedule=[](uint32_t){return false;};
+  setup();
+  fakeButtonSchedule={};
+}
 int main() {
   unsigned failedTests = 0;
   struct Case { const char* name; bool provisioned; int wifi; bool expired; unsigned expectedRequests; };
@@ -24,7 +31,7 @@ int main() {
     fakeBeeps = fakeRecordRequests = 0; M5.BtnA = {}; M5.Display = {};
     configured = item.provisioned; pcOnline = configured; pcSeen = 0;
     WiFi.state = item.wifi; consumed = true; pressedAt = 0;
-    setup(); face.state.wake(fakeTime - 350); updateUi();
+    setupWithoutBootButton(); face.state.wake(fakeTime - 350); updateUi();
     // A real 2.1 second hold then release, as in the user's report.
     while (fakeTime - fakeGestureStart < 2200) loop();
     const bool stuck = face.state.mode == Mode::Armed;
@@ -54,7 +61,7 @@ int main() {
   fakeTime = fakeGestureStart = 0; fakeHeldForever = true; fakeDelayBudget = 16000;
   fakeRecordRequests = 0; M5.BtnA = {}; M5.Display = {};
   configured = pcOnline = true; pcSeen = 0; WiFi.state = WL_CONNECTED; consumed = true;
-  setup(); face.state.wake(fakeTime - 350); updateUi();
+  setupWithoutBootButton(); face.state.wake(fakeTime - 350); updateUi();
   bool bounded = true;
   try { while (fakeTime < 2200) loop(); } catch (const std::runtime_error&) { bounded = false; }
   const bool noStalePrompt = face.state.mode != Mode::Armed && fakeRecordRequests == 0;

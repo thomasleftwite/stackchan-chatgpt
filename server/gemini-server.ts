@@ -1,4 +1,5 @@
-import {createServer} from 'node:http';
+import {createServer, type IncomingMessage, type ServerResponse} from 'node:http';
+import {createServer as createSecureServer} from 'node:https';
 import {createHash, timingSafeEqual} from 'node:crypto';
 import {WebSocketServer, WebSocket} from 'ws';
 import {decodePcm, encodePcm} from './protocol.js';
@@ -8,6 +9,8 @@ export interface GeminiServerOptions {
   deviceToken: string;
   runTurn: (pcm: Buffer) => Promise<TurnResult>;
   sessionMs?: number;
+  tlsPsk?: {identity:string; keyHex:string};
+  onHealth?: () => void;
 }
 
 /** Initial half-duplex protocol v2: one bounded utterance/response per connection. */
@@ -17,11 +20,22 @@ export function createGeminiServer(options: GeminiServerOptions) {
   if (!Number.isFinite(sessionMs) || sessionMs < 100 || sessionMs > 90_000) throw new Error('Invalid deadline');
   const digest = (value: string) => createHash('sha256').update(value).digest();
   const expected = digest(options.deviceToken);
-  const server = createServer({maxHeaderSize:8192}, (req, res) => {
+  if (options.tlsPsk && (!/^[0-9a-f]{32}$/.test(options.tlsPsk.keyHex) || options.tlsPsk.identity !== 'stackchan-v1')) throw new Error('Invalid TLS identity');
+  const handler = (req:IncomingMessage, res:ServerResponse) => {
+    if (options.tlsPsk && req.headers.authorization !== `Bearer ${options.deviceToken}`) {
+      res.writeHead(401); res.end(); return;
+    }
+    if (req.url === '/healthz') options.onHealth?.();
     res.setHeader('Content-Type', 'application/json');
     res.writeHead(req.url === '/healthz' ? 200 : 404);
     res.end(JSON.stringify(req.url === '/healthz' ? {status:'ok', mode:'gemini-live', protocolVersion:2} : {error:'not-found'}));
-  });
+  };
+  const server = options.tlsPsk ? createSecureServer({
+    maxHeaderSize:8192, minVersion:'TLSv1.2', maxVersion:'TLSv1.2',
+    ciphers:'DHE-PSK-AES128-GCM-SHA256', dhparam:'auto',
+    pskCallback:(_socket, identity) => identity === options.tlsPsk!.identity ? Buffer.from(options.tlsPsk!.keyHex,'hex') : null,
+    handshakeTimeout:5000,
+  }, handler) : createServer({maxHeaderSize:8192}, handler);
   server.headersTimeout = 5000; server.requestTimeout = 10_000;
   const wss = new WebSocketServer({noServer:true, maxPayload:1024, perMessageDeflate:false});
   let busy = false;

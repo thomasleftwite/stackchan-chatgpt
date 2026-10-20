@@ -1,4 +1,8 @@
+USB不要のホットスポット＋TLS構成を実装中です。[構成・検証範囲](docs/WIRELESS_HOST.md)を参照してください。
+
 # Stackchan-chatgpt
+
+Gemini端末版にもWiFiManagerを統合しました。操作・開発方針・検証範囲は[Wi-Fi設定](docs/WIFI_PROVISIONING.md)を参照してください。COM4へのアプリ限定導入・ハッシュ検証は完了し、設定APと接続保存の実機確認待ちです。
 
 再開時は [短い要約](docs/RESUME.md) を最初に参照してください。
 

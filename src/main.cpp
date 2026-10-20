@@ -53,9 +53,9 @@ void connectWifi(bool forcePortal) {
   WiFiManager manager;
   manager.setDebugOutput(false);
   manager.setConnectTimeout(15);
-  manager.setConfigPortalTimeout(180);
-  manager.setBreakAfterConfig(true);
-  char password[9]; snprintf(password, sizeof(password), "%08lX", static_cast<unsigned long>(esp_random()));
+  manager.setConfigPortalTimeout(0);
+  manager.setBreakAfterConfig(false);
+  const char password[] = "12345678";
   manager.setAPCallback([&](WiFiManager*) {
     show("Wi-Fi設定\nStackchan-Setup\nPW: " + String(password) + "\n192.168.4.1", false);
   });

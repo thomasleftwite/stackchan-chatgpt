@@ -15,9 +15,9 @@ def local_addresses():
     script = """[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new();
 $result=@([System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
  Where-Object {$_.OperationalStatus -eq 'Up'} | ForEach-Object {
- $n=$_.GetIPProperties(); if($n.GatewayAddresses.Count -gt 0){
+ $n=$_.GetIPProperties();
  $n.UnicastAddresses | Where-Object {$_.Address.AddressFamily -eq 'InterNetwork'} |
- ForEach-Object {$_.Address.IPAddressToString}}}); ConvertTo-Json -Compress -InputObject $result"""
+ ForEach-Object {$_.Address.IPAddressToString}}); ConvertTo-Json -Compress -InputObject $result"""
     shell = Path(os.environ.get('SystemRoot', 'C:/Windows')) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
     result = subprocess.run([str(shell),'-NoProfile','-NonInteractive','-Command',script],
         capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=15,
