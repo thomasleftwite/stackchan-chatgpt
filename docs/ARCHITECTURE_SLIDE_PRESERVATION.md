@@ -55,4 +55,4 @@ git restore --source=HEAD --staged --worktree -- docs/architecture-slide.pptx
 
 この資料更新ではファームウェア・ホストアプリを変更せず、実機操作・API呼出しは行っていない。実機の成功範囲は既存記録と利用者回答に基づく。
 
-ローカルGit履歴は同じPC上の復旧手段であり、PCやディスク全体の喪失対策には別の保存先も必要。この作業ではGitHubへのpushは実施しない。遠隔保存は次回の公開時に内容を確認して行う。
+ローカルGit履歴は同じPC上の復旧手段。2026-10-21の後続依頼で、現行PPTXと保管元版を[PR #6](https://github.com/thomasleftwite/stackchan-chatgpt/pull/6)からGitHub mainへ保存・統合した。マージは`e106a54`。詳細は[公開記録](GITHUB_SYNC_2026-10-21.md)。

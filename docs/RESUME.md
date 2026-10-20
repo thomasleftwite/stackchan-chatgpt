@@ -1,6 +1,8 @@
 # 開発経緯と再開地点
 
-2026-10-21 / R10。目的: 過去の会話を読み直さずWindows版の開発を続けるため、現在地・判断・検証・残作業を一箇所にまとめる。
+2026-10-21 / R11。目的: 過去の会話を読み直さずWindows版の開発を続けるため、現在地・判断・検証・残作業を一箇所にまとめる。
+
+GitHub公開: [PR #6](https://github.com/thomasleftwite/stackchan-chatgpt/pull/6)をmainへ統合済み。マージ`e106a54`へローカルmainを同期し、秘密設定保持を確認。[公開・検証記録](GITHUB_SYNC_2026-10-21.md)。
 
 ## 現在地
 
@@ -50,9 +52,9 @@
 - Windows: `releases/StackchanHost-0.5.0-preview.1-win-x64/StackchanHost.exe`（53,208,620 bytes、SHA256先頭881bf764）。
 - 端末: `.pio/firmware-snapshots/gemini-hotspot-trust-20261021-r01.bin`（1,601,424 bytes、SHA256先頭BF936E88）。COM4、app0の0x10000へ限定導入・書込みハッシュ検証済み。両成果物の全ハッシュは [現行方式](HOTSPOT_TRUST.md)。
 - 構成: [PowerPoint](architecture-slide.pptx) / [保管・復旧と検証](ARCHITECTURE_SLIDE_PRESERVATION.md)。スライドと元版はGit管理、EXE・ファームウェア・秘密設定・観測データはGit除外。
-- 実装基点はローカルmainの`97f2e48`。今回の照会でGitHub mainは`3283ad2d70c6fa6839aeb9398b76c075f7dddb88`のまま。基点は共通で、0.5等の後続変更はローカルのみ。今回push/mergeは行わない。
+- 実装基点`97f2e48`と資料整理`88ec21f`を[PR #6](https://github.com/thomasleftwite/stackchan-chatgpt/pull/6)でGitHub mainへ統合済み（マージ`e106a54`）。それ以前の`3283ad2`から11コミットを公開し、検証済みツリーとの一致・ローカルmain同期・秘密設定保持を確認。公開前にPython39/Node32/C++145/3構成ビルドを再実行して成功した。
 
-次の開発候補は未検証項目の評価。公開を依頼された時は秘密設定保持、差分・テスト、GitHub認証、push/PR/merge、main同期を確認してから遠隔完了とする。
+次の開発候補は未検証項目の評価。EXE・ファームウェアはローカル保管で、GitHub Releaseへの配布は行っていない。次回の公開でも秘密設定保持、差分・テスト、認証、push/PR/merge、main同期を確認する。
 
 ## 資料の優先順
 
