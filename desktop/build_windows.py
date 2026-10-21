@@ -18,7 +18,7 @@ STAGE=BUILD/'stage/runtime'
 from settings import VERSION
 OUT=ROOT/'releases'/f'StackchanHost-{VERSION}-win-x64'
 JS=['local-gemini','gemini-pc','gemini-server','gemini-isolated','gemini-worker',
-    'wireless-host','gemini-turn','private-config','protocol','gemini-probe-client','host-self-check']
+    'wireless-host','gemini-turn','private-config','protocol','gemini-probe-client','host-self-check','voice-control','voice-preview']
 FLAGS=getattr(subprocess,'CREATE_NO_WINDOW',0)
 
 def run(args,**kwargs):
@@ -51,6 +51,7 @@ def main():
     target=STAGE/'server'; (target/'dist').mkdir(parents=True,exist_ok=True)
     shutil.copy2(node,STAGE/'node.exe')
     for name in ('package.json','package-lock.json'): shutil.copy2(ROOT/'server'/name,target/name)
+    shutil.copy2(ROOT/'server/voice-catalog.json',target/'voice-catalog.json')
     for name in JS: shutil.copy2(ROOT/'server/dist'/f'{name}.js',target/'dist'/f'{name}.js')
     # Restore exactly the production closure from lockfile; no install scripts.
     run(['npm.cmd','ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund',
@@ -89,7 +90,7 @@ def main():
         files.append({'path':str(path.relative_to(STAGE)).replace('\\','/'),'size':len(data),'sha256':hashlib.sha256(data).hexdigest()})
     manifest={'version':VERSION,'node':version,'python':sys.version.split()[0],
         'serverLockSha256':sha(ROOT/'server/package-lock.json'),'payload':files,
-        'launcherSources':{name:sha(ROOT/name) for name in ('desktop/host_app.py','desktop/settings.py','desktop/network.py','desktop/wireless.py','tools/run_gemini_device.py','tools/run_lan_probe.py')},
+        'launcherSources':{name:sha(ROOT/name) for name in ('desktop/host_app.py','desktop/settings.py','desktop/network.py','desktop/wireless.py','desktop/voices.py','desktop/voice_preview.py','tools/run_gemini_device.py','tools/run_lan_probe.py')},
         'privateValueMatches':0,'firmwareIncluded':False,'driverInstallerIncluded':False}
     (STAGE/'build-manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     run([sys.executable,'-m','PyInstaller','--noconfirm','--onefile','--windowed','--noupx',

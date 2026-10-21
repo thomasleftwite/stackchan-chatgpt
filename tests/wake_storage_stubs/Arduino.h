@@ -13,3 +13,6 @@ inline String operator+(const String& a,const String& b) { return String(std::st
 inline void* ps_malloc(size_t n) { return std::malloc(n); }
 struct SerialFake { template<class... T> void printf(const char*,T...) {} };
 inline SerialFake Serial;
+inline uint32_t fakeWakeTime=0;
+inline uint32_t millis() { return fakeWakeTime; }
+inline void delay(unsigned ms) { fakeWakeTime+=ms; }

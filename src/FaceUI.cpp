@@ -53,11 +53,9 @@ void FaceUI::tick(uint32_t now, bool force) {
   if (state.mode == Mode::Listening) mouth = 2 + static_cast<int>(level_) / 2;
   frame_.fillRoundRect(cx - (sleeping ? 4 : 9), cy + 25, sleeping ? 8 : 18, mouth, 2, white);
   if (thinking) for (int i = 0; i < 3; ++i) frame_.fillCircle(cx - 12 + i * 12, cy + 39, (now / 250) % 3 == static_cast<unsigned>(i) ? 3 : 1, accent);
-  if (state.mode == Mode::Listening) frame_.fillRect(12, h - 31, static_cast<int>(level_) * (w - 24) / 10, 3, accent);
   const char* hint = note_;
   if (!hint[0]) {
     if (sleeping) hint = "Hold 5s: learn call";
-    else if (state.mode == Mode::WakeWait) hint = wakeAvailable_ ? "Say call / hold to ask" : "Hold: manual ask";
     else if (state.mode == Mode::Preparing) hint = "Please stay quiet";
     else if (state.mode == Mode::Listening) hint = "Speak now";
   }

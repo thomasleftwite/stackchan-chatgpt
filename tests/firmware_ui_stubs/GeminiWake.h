@@ -8,6 +8,9 @@ class GeminiWake {
  public:
   void begin() {}
   bool available() const { return fakeWakeAvailable; }
+  void diagnostics(char* state,size_t stateSize,char* metrics,size_t metricsSize) const {
+    strlcpy(state,fakeWakeAvailable?"Say your call":"Call unavailable",stateSize);strlcpy(metrics,"V0 T750 D--",metricsSize);
+  }
   bool canEnroll() const { return fakeEnrollAllowed; }
   bool prepare(const int16_t*,size_t count) { fakeEnrollPending=count>=6400; fakeEnrollSamples=fakeEnrollPending?1:0; fakeEnrollVerified=false; return fakeEnrollPending; }
   bool collect(const int16_t*,size_t count) { if(!fakeEnrollPending || count<6400 || fakeEnrollSamples>=3)return false;

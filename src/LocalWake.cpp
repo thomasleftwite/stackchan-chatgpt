@@ -28,6 +28,42 @@ void LocalWake::reset() {
   if (raw_) memset(raw_, 0, 48000 * sizeof(int16_t));
   gate_.reset(16000, 400, 200, 3000, 3000, config_->energyThreshold);
 }
+void LocalWake::resetDetection() {
+  detection_.reset(); inputRms_=detectionThreshold_=0;
+  detectionStatus_="Wake preparing"; resultFrames_=0;
+}
+bool LocalWake::detect(const int16_t* samples) {
+  if(!raw_ || !reference_ || !samples) return false;
+  if(!detection_) detection_.reset(new WakeEnrollmentCapture(raw_,48000));
+  int64_t mean=0; for(size_t i=0;i<320;++i) mean+=samples[i]; mean/=320;
+  uint64_t energy=0; for(size_t i=0;i<320;++i) { const int64_t v=samples[i]-mean; energy+=v*v; }
+  inputRms_=static_cast<uint32_t>(std::sqrt(static_cast<double>(energy/320)));
+  const auto result=detection_->push(samples,320);
+  detectionThreshold_=detection_->voiceThreshold();
+  if(resultFrames_) --resultFrames_;
+  using R=WakeEnrollmentCapture::Result;
+  if(!resultFrames_) detectionStatus_=result==R::Calibration ? "Quiet: measuring" :
+      result==R::Recording ? "Hearing voice" : "Say your call";
+  if(!detection_->terminal()) return false;
+  bool matched=false;
+  if(result==R::Ready) {
+    std::unique_ptr<simplevox::MfccFeature> candidate(engine_.create(raw_,static_cast<int>(detection_->samples())));
+    lastDistance_=candidate ? simplevox::calcDTW(*reference_,*candidate) : UINT32_MAX;
+    matched=lastDistance_<config_->wakeThreshold;
+    detectionStatus_=matched ? "Call matched" : "Call no match";
+  } else {
+    detectionStatus_=result==R::Noisy ? "Room too loud" : result==R::Short ? "Call too short" :
+        result==R::Long ? "Voice too long" : result==R::Clipped ? "Sound clipped" : "Say your call";
+  }
+  resultFrames_=100; // Keep the most recent reason visible for about two seconds.
+  const auto ambient=detection_->ambient();
+  // Re-measure after idle/noisy conditions. Otherwise preserve the same ambient
+  // gate and exact 100ms preroll/400ms end/trim rules used for enrollment.
+  if(result==R::Empty || result==R::Noisy) detection_.reset();
+  else detection_.reset(new WakeEnrollmentCapture(raw_,48000,ambient));
+  memset(raw_,0,48000*sizeof(int16_t));
+  return matched;
+}
 bool LocalWake::sameFile(const String& path, const simplevox::MfccFeature& feature) {
   if (!validFile(path)) return false;
   std::unique_ptr<simplevox::MfccFeature> loaded(engine_.loadFile(("/spiffs" + path).c_str()));

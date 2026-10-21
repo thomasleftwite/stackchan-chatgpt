@@ -39,6 +39,7 @@ export interface TurnOptions {
   connector?: LiveConnector;
   timeoutMs?: number;
   maxPcmBytes?: number;
+  purpose?: 'preview';
 }
 
 /** Bounded single-turn audio response. No transcripts, input or API errors are logged. */
@@ -71,7 +72,8 @@ export async function runGeminiTurn(options: TurnOptions): Promise<TurnResult> {
   void Promise.resolve().then(() => connect({
     model:config.model,
     config:{responseModalities:[Modality.AUDIO], maxOutputTokens:1024,
-      systemInstruction:'あなたはスタックちゃんです。日本語で短く1文で答えてください。',
+      ...(config.voice ? {speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:config.voice}}}} : {}),
+      systemInstruction:options.purpose==='preview' ? '音声確認です。入力された日本語の文章だけを、一字も省略・追加せずそのまま読み上げてください。前置きや説明をしないでください。' : 'あなたはスタックちゃんです。日本語で短く1文で答えてください。',
       realtimeInputConfig:{automaticActivityDetection:{disabled:true}}, abortSignal:controller.signal},
     callbacks:{
       onmessage: message => {

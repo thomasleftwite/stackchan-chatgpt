@@ -3,19 +3,22 @@ import {fileURLToPath} from 'node:url';
 import {GeminiFailure, type TurnOptions, type TurnResult} from './gemini-turn.js';
 
 /** SDK setup cannot reliably be aborted in 2.30.0: isolate each bounded turn. */
-export function runIsolatedTurn(options: Omit<TurnOptions, 'connector'>): Promise<TurnResult> {
+export function runIsolatedTurn(options: Omit<TurnOptions, 'connector'>, signal?:AbortSignal): Promise<TurnResult> {
   return new Promise((resolve, reject) => {
+    if(signal?.aborted) {reject(new GeminiFailure('INTERRUPTED'));return;}
     const worker = fork(fileURLToPath(new URL('./gemini-worker.js', import.meta.url)), [], {
       stdio:['ignore', 'ignore', 'ignore', 'ipc'], windowsHide:true,
     });
     let settled = false;
     const finish = (error?: GeminiFailure, value?: TurnResult) => {
       if (settled) return;
-      settled = true; clearTimeout(timer);
+      settled = true; clearTimeout(timer);signal?.removeEventListener('abort',cancel);
       worker.kill(); // Only this turn's child process; also closes half-open SDK sockets.
       if (error) reject(error); else resolve(value!);
     };
     const timer = setTimeout(() => finish(new GeminiFailure('TIMEOUT')), (options.timeoutMs ?? 30_000) + 2000);
+    const cancel=()=>finish(new GeminiFailure('INTERRUPTED'));
+    signal?.addEventListener('abort',cancel,{once:true});
     worker.on('error', () => finish(new GeminiFailure('TRANSPORT')));
     worker.on('exit', () => { if (!settled) finish(new GeminiFailure('EARLY_CLOSE')); });
     worker.on('message', (message: unknown) => {

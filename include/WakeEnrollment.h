@@ -49,6 +49,7 @@ class WakeEnrollmentCapture {
   size_t samples() const { return result_==Result::Ready ? count_ : 0; }
   uint32_t noiseRms() const { return ambient_.noise(); }
   uint32_t voiceThreshold() const { return ambient_.threshold(); }
+  const AmbientGate& ambient() const { return ambient_; }
   size_t recordedSamples() const { return used_; }
   size_t voicedSamples() const { return voiced_; }
  private:

@@ -1,6 +1,6 @@
 import {readFile, stat} from 'node:fs/promises';
 
-export interface GeminiConfig {apiKey: string; model: string}
+export interface GeminiConfig {apiKey: string; model: string; voice?:string}
 
 /** Read the existing ignored setting, never copy it to another config or log. */
 export async function loadGeminiConfig(
@@ -19,5 +19,7 @@ export async function loadGeminiConfig(
   if (!apiKey || !/^[\x21-\x7e]{20,256}$/.test(apiKey)) throw new Error('GEMINI_KEY_INVALID');
   const model = env.GEMINI_MODEL || 'gemini-3.8-live';
   if (!/^gemini-[a-z0-9.-]{1,100}$/.test(model)) throw new Error('GEMINI_MODEL_INVALID');
-  return {apiKey, model};
+  const voice=env.GEMINI_VOICE;
+  if(voice && !/^[A-Za-z]{1,32}$/.test(voice)) throw new Error('GEMINI_VOICE_INVALID');
+  return {apiKey, model,...(voice?{voice}:{})};
 }

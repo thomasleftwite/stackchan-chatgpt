@@ -55,7 +55,7 @@ def runtime_node(runtime, destination=None):
         temp=target.with_suffix('.new');shutil.copyfile(source,temp);os.replace(temp,target)
     return target
 
-def run_wireless(runtime,node,host,env,stop_event,on_status):
+def run_wireless(runtime,node,host,env,stop_event,on_status,commands=None,on_event=None):
     # Wi-Fi membership is the trust boundary selected by the user.
     from network import hotspot_networks
     networks=hotspot_networks()
@@ -74,12 +74,20 @@ def run_wireless(runtime,node,host,env,stop_event,on_status):
         child.stdin.write(json.dumps({'host':host,'port':PORT,'subnet':networks[host]})+'\n');child.stdin.flush()
         ready=False
         while not stop_event.wait(.1):
+            if commands is not None:
+                while True:
+                    try: command=commands.get_nowait()
+                    except queue.Empty: break
+                    child.stdin.write(json.dumps(command)+'\n');child.stdin.flush()
             if child.poll() is not None:
                 on_status('WIRELESS failed');return 1
             try: event=json.loads(events.get(timeout=.1))
             except queue.Empty: continue
             except (ValueError,TypeError): continue
             kind=event.get('event') if isinstance(event,dict) else None
+            if on_event and kind in ('voice-selected','voice-failed','session-busy','session-idle',
+                    'preview-audio','preview-failed','preview-stopped','preview-conflict','turn-complete','voice-played'):
+                on_event(event)
             status=wireless_status(event)
             if status:
                 on_status(status)

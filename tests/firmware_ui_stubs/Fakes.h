@@ -30,6 +30,9 @@ inline bool fakeMicActive = false, fakeCanvasFailure = false;
 inline std::function<bool(uint32_t)> fakeButtonSchedule;
 inline std::function<void()> fakeWsLoop;
 inline uint32_t fakePlaybackMs = 0, fakePlaybackUntil = 0;
+inline uint32_t fakeSpeakerBeganAt = 0, fakePcmBeganAt = 0;
+inline const int16_t* fakePcmData = nullptr;
+inline size_t fakePcmSamples = 0;
 inline uint32_t fakeCueDurationMs = 0, fakeCueEndedAt = 0, fakeMicBeganAt = 0;
 inline uint32_t millis() { return fakeTime; }
 inline void delay(unsigned ms) { fakeTime += ms; if (fakeTime > fakeDelayBudget) throw std::runtime_error("button release wait exceeded budget"); }
@@ -99,14 +102,17 @@ struct FakeMic {
   bool isRunning() const { return fakeMicActive; }
 };
 struct FakeSpeaker {
-  bool begin() { return true; }
+  bool begin() { fakeSpeakerBeganAt = fakeTime; return true; }
   void end() { fakePlaybackUntil = 0; }
   void stop() { fakePlaybackUntil = 0; }
   void setVolume(int) {}
   bool tone(int, int) { ++fakeBeeps; fakeCueEndedAt = fakeTime + fakeCueDurationMs;
     if(fakeCueDurationMs) fakePlaybackUntil = fakeCueEndedAt; return true; }
   bool isPlaying() const { return fakePlaybackUntil && static_cast<int32_t>(fakePlaybackUntil - fakeTime) > 0; }
-  bool playRaw(const int16_t*, size_t, unsigned, bool, int, int) { fakePlaybackUntil = fakeTime + fakePlaybackMs; return true; }
+  bool playRaw(const int16_t* data, size_t samples, unsigned, bool, int, int) {
+    fakePcmBeganAt = fakeTime; fakePcmData = data; fakePcmSamples = samples;
+    fakePlaybackUntil = fakeTime + fakePlaybackMs; return true;
+  }
 };
 struct FakeM5 {
   struct Config { bool internal_spk = false, internal_mic = false; struct { bool atomic_echo = false; } external_speaker; unsigned serial_baudrate = 0; };

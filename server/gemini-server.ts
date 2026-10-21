@@ -13,6 +13,10 @@ export interface GeminiServerOptions {
   tlsPsk?: {identity:string; keyHex:string};
   onHealth?: () => void;
   trustedSubnet?: string;
+  canStart?:()=>boolean;
+  onSessionState?:(active:boolean)=>void;
+  onBusy?:()=>void;
+  onPlayed?:()=>void;
 }
 
 function hotspotBoundary(subnet: string): BlockList {
@@ -72,9 +76,11 @@ export function createGeminiServer(options: GeminiServerOptions) {
     if (!boundary && (typeof auth !== 'string' || !auth.startsWith('Bearer ') || auth.length > 263 ||
         !timingSafeEqual(digest(auth.slice(7)), expected))) { reject(401); return; }
     if (wss.clients.size || busy) { reject(429); return; }
+    if(options.canStart && !options.canStart()) {options.onBusy?.();reject(429);return;}
     wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws));
   });
   wss.on('connection', ws => {
+    options.onSessionState?.(true);
     let phase: 'input' | 'generating' | 'output' | 'draining' | 'closed' = 'input';
     let generation = 0, inputSequence = 0, inputBytes = 0, outputSequence = 0, outputSamples = 0;
     let output: Buffer | undefined;
@@ -94,7 +100,7 @@ export function createGeminiServer(options: GeminiServerOptions) {
     }, 100);
     timer.unref();
     ws.on('error', () => stop(1011, 'Transport failure'));
-    ws.on('close', () => { phase = 'closed'; clearInterval(timer); clearTimeout(hardClose); clearAudio(); });
+    ws.on('close', () => { phase = 'closed'; clearInterval(timer); clearTimeout(hardClose); clearAudio();if(!busy)options.onSessionState?.(false); });
     ws.on('message', (raw, binary) => {
       if (phase === 'closed') return;
       const packet = Array.isArray(raw) ? Buffer.concat(raw) : Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
@@ -129,7 +135,7 @@ export function createGeminiServer(options: GeminiServerOptions) {
             output = result.pcm; outputSamples = output.length / 2; phase = 'output';
             json({type:'output_start', generation, sampleRate:24000, samples:outputSamples, frames:Math.ceil(output.length / 960)});
           }).catch(() => { if (phase !== 'closed') { json({type:'error', code:'GEMINI_FAILED'}); stop(1011, 'Gemini failed'); } })
-            .finally(() => { pcm.fill(0); busy = false; });
+            .finally(() => { pcm.fill(0); busy = false;if(phase==='closed')options.onSessionState?.(false); });
           return;
         }
         if (control.type === 'next' && phase === 'output' && 'sequence' in control && control.sequence === outputSequence && output) {
@@ -146,6 +152,7 @@ export function createGeminiServer(options: GeminiServerOptions) {
           return;
         }
         if (control.type === 'played' && phase === 'draining' && 'samples' in control && control.samples === outputSamples) {
+          options.onPlayed?.();
           json({type:'complete', generation}); stop(1000, 'Turn complete'); return;
         }
         throw new Error();
