@@ -101,19 +101,45 @@ int main() {
   check(gated, "sleep and transaction phases reject microphone entry; wake detection requires explicit permission");
 
   resetRuntime(); awake(); inputCount = 320; fakePlaybackMs = 250;
-  unsigned iterations = 0; bool quiet = true, spoke = false;
+  unsigned iterations = 0; bool quiet = true, spoke = false, warmupQuiet = true;
   fakeWsLoop = [&]() {
     ++iterations; quiet = quiet && !fakeMicActive && fakeMicBegins == 0 && !face.state.microphoneAllowed();
     ready = true; acked = sent;
     if (inputEnded && !thinking) { thinking = true; face.set(Mode::Thinking); }
     if (thinking && iterations > 25) { outputStarted = outputEnded = true; reply.total = reply.received = 2400; }
+    if (outputEnded && fakeTime - fakeSpeakerBeganAt < 200)
+      warmupQuiet = warmupQuiet && !played && face.state.mode != Mode::Speaking;
     if (face.state.mode == Mode::Speaking) spoke = true;
     if (played) { complete = closed = true; }
   };
   // run(false) is the existing synthetic path; it never starts a microphone or calls a provider.
   run(false); fakeWsLoop = {};
+  check(fakePcmBeganAt - fakeSpeakerBeganAt == 200,
+        "reply PCM starts exactly 200ms after speaker enable");
+  check(fakePcmData == output && fakePcmSamples == 2400,
+        "reply playback keeps the original PCM pointer and full sample count");
+  check(warmupQuiet, "warmup keeps the mouth and playback acknowledgement inactive while servicing the network");
   check(quiet && spoke && played && face.state.mode == Mode::WakeWait && fakeMicBegins == 0,
         "actual transport and playback keep microphone off through return to ready");
+
+  for (bool disconnect : {false,true}) {
+    resetRuntime(); awake(); fakePcmData=nullptr;
+    unsigned steps=0; uint32_t enabledAt=0;
+    fakeWsLoop=[&]() {
+      ++steps; ready=true; acked=sent;
+      if (inputEnded && !thinking) { thinking=true;face.set(Mode::Thinking); }
+      if (thinking && steps>25 && !outputEnded) {
+        outputStarted=outputEnded=true; reply.total=reply.received=2400;enabledAt=fakeTime;
+      }
+      if (outputEnded && fakeTime-enabledAt>=100) {
+        if (disconnect) closed=true; else bad(9);
+      }
+    };
+    run(false);fakeWsLoop={};
+    check(!fakePcmData && !played && !fakeMicActive && face.state.mode==Mode::WakeWait,
+          disconnect ? "disconnect during warmup returns ready without playing PCM" :
+                       "cancellation during warmup returns ready without playing PCM");
+  }
 
   resetRuntime(); fakeWakeAvailable = true; awake(); fakePlaybackMs = 250;
   const auto activePolls = fakeWakePolls;

@@ -153,8 +153,9 @@ bool transport() {
 #endif
   snprintf(auth, sizeof(auth), "Authorization: Bearer %s", token);
   ws.setExtraHeaders(auth);
-  const auto started = millis(); uint32_t nextSend = started, playbackStarted = 0;
-  bool playbackQueued = false;
+  const auto started = millis(); uint32_t nextSend = started, playbackStarted = 0, speakerReadyAt = 0;
+  constexpr uint32_t replyWarmupMs = 200;
+  bool speakerPrepared = false, playbackQueued = false;
   while (!failed && !closed && millis() - started < 85000) {
     ws.loop();
     if (failed || closed) break;
@@ -167,9 +168,15 @@ bool transport() {
     }
     if (!inputEnded && acked == inputCount / 320) { inputEnded = true; if (!control("input_end")) bad(6); memset(input, 0, inputCount * 2); }
     if (outputStarted && !outputEnded && !credit && !reply.complete()) { credit = true; if (!control("next", reply.sequence)) bad(6); }
-    if (outputEnded && !playbackQueued) {
+    if (outputEnded && !speakerPrepared) {
+      if (!audio.output()) bad(7);
+      else { speakerPrepared = true; speakerReadyAt = millis(); }
+    }
+    // Keep servicing Wi-Fi, UI and cancellation while the output settles.
+    // Submit the complete reply only after the speaker has been enabled for 200ms.
+    if (speakerPrepared && !failed && !playbackQueued && millis() - speakerReadyAt >= replyWarmupMs) {
       playbackQueued = true; playbackStarted = millis();
-      if (!audio.output() || !audio.play(output, reply.total)) bad(7);
+      if (!audio.play(output, reply.total)) bad(7);
       else face.set(Mode::Speaking);
     }
     if (playbackQueued && !played && !failed) {
