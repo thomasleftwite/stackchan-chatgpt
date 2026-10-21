@@ -78,7 +78,6 @@ void released(void*, void* data, size_t length) {
 }
 bool pcReady() { return configured && pcOnline && millis() - pcSeen < 20000; }
 void updateUi() {
-  face.wakeAvailable(wakeInput.available());
   face.link(!configured ? deviceui::Link::Unconfigured : WiFi.status() != WL_CONNECTED ? deviceui::Link::WifiOffline :
             !pcReady() ? deviceui::Link::PcOffline : deviceui::Link::Ready);
   const bool wasAsleep = face.state.asleep;
@@ -91,7 +90,7 @@ void waitUi(uint32_t duration) {
   const auto started = millis();
   while (millis() - started < duration) { M5.update(); updateUi(); delay(10); }
 }
-void idle() { face.state.rest(millis()); face.set(face.state.mode, wakeInput.available() && !face.state.asleep ? "Say call / hold to ask" : ""); updateUi(); }
+void idle() { face.state.rest(millis()); face.set(face.state.mode); updateUi(); }
 bool canRecord() {
   if (!configured || WiFi.status() != WL_CONNECTED || !pcReady()) {
     Serial.printf("GEM START BLOCKED reason=%s\n", !configured ? "setup" : WiFi.status() != WL_CONNECTED ? "wifi" : "pc");

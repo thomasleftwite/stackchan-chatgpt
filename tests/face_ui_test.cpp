@@ -41,6 +41,17 @@ void awake() { face.state.wake(fakeTime); advance(360); }
 }
 int main() {
   resetRuntime(); fakeWakeAvailable = true; awake();
+  face.tick(fakeTime,true);
+  check(M5.Display.text.find("Ready\n")==0 && M5.Display.text.find("Say")==std::string::npos &&
+        M5.Display.text.find("Hold: manual ask")==std::string::npos,
+        "release ready shows mode without wake instructions");
+  { std::ofstream preview("release-ready-preview.svg");preview<<M5.Display.svg; }
+  face.set(Mode::Listening);face.level(10);face.tick(fakeTime,true);
+  check(M5.Display.svg.find("<rect x='12' y='97'")==std::string::npos,
+        "release listening has no sound level monitor bar");
+  face.state.sleep(fakeTime);face.tick(fakeTime,true);
+  check(M5.Display.text.find("V600")==std::string::npos,"sleep hides wake diagnostic values");
+  resetRuntime(); fakeWakeAvailable = true; awake();
   check(fakeMicActive && fakeWakePolls > 0, "registered call enables local mic only after waking");
   const auto beforeSleep = fakeWakePolls;
   gesture(60); advance(100);

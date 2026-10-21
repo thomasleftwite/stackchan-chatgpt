@@ -8,7 +8,6 @@ class FaceUI {
   bool begin();
   void set(deviceui::Mode mode, const char* note = "");
   void link(deviceui::Link value);
-  void wakeAvailable(bool value) { if (wakeAvailable_ != value) { wakeAvailable_ = value; dirty_ = true; } }
   void level(unsigned value) { level_ = value > 10 ? 10 : value; }
   void tick(uint32_t now, bool force = false);
  private:
@@ -16,7 +15,7 @@ class FaceUI {
   deviceui::Link link_ = deviceui::Link::Unconfigured;
   deviceui::Mode drawn_ = deviceui::Mode::Boot;
   char note_[32]{};
-  bool available_ = false, dirty_ = true, wakeAvailable_ = false;
+  bool available_ = false, dirty_ = true;
   unsigned level_ = 0;
   uint32_t lastFrame_ = 0;
 };

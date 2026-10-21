@@ -11,18 +11,15 @@ import tempfile
 import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
-import webbrowser
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1] / 'tools'))
-from run_gemini_device import main as run_device
 from serial.tools import list_ports
 from settings import VERSION, load_settings, save_settings, save_voice_setting, settings_path, valid_key, valid_model
 from voices import VoiceReviews,REVIEW_REASONS
 from voice_preview import decode_audio, generate_sample, play_pcm
-from network import local_addresses, hotspot_networks, is_lan
+from network import hotspot_networks, is_lan
 from wireless import run_wireless, runtime_node, PORT
 
-DRIVER_URL='https://docs.espressif.com/projects/esp-iot-solution/en/release-v2.0/usb/usb_overview/usb_serial_jtag.html'
 
 def runtime_root():
     if getattr(sys,'frozen',False): return Path(sys._MEIPASS) / 'runtime'
@@ -47,7 +44,6 @@ class HostApp:
         self.voice=tk.StringVar();self.voice_status=tk.StringVar(value='日本語の声を確認して採用してください。')
         self.preview_status=tk.StringVar(value='試聴はPCの再生先から流れ、Gemini APIを使用します。')
         self.key=tk.StringVar(); self.model=tk.StringVar(value='gemini-3.8-live')
-        self.transport=tk.StringVar(value='Wi-Fi（USB不要）')
         self.port=tk.StringVar(); self.host=tk.StringVar(); self.remember=tk.BooleanVar(value=False)
         self.status=tk.StringVar(value='PCのホットスポットを有効にし、接続先とGeminiキーを確認してください。')
         root.title('スタックちゃん ホスト'); root.geometry('860x980'); root.minsize(800,940)
@@ -60,22 +56,19 @@ class HostApp:
         ttk.Label(outer,text='スタックちゃん ホスト',style='Title.TLabel').pack(anchor='w')
         ttk.Label(outer,text='PCのホットスポットにつないだ端末を自動で受け付けます。登録コードは不要です。').pack(anchor='w',pady=(2,19))
         form=ttk.Frame(outer); form.pack(fill='x'); form.columnconfigure(1,weight=1)
-        self.transport_box=ttk.Combobox(form,textvariable=self.transport,values=['Wi-Fi（USB不要）','USB診断（従来）'],state='readonly')
-        self.port_box=ttk.Combobox(form,textvariable=self.port,state='readonly',width=25)
         self.host_box=ttk.Combobox(form,textvariable=self.host,state='readonly')
         self.key_box=ttk.Entry(form,textvariable=self.key,show='●')
         self.model_box=ttk.Entry(form,textvariable=self.model)
-        self.transport_box.bind('<<ComboboxSelected>>',lambda _event:self.scan())
-        for row,(caption,widget) in enumerate([('接続方式',self.transport_box),('USBポート（診断時のみ）',self.port_box),('PCホットスポットのアドレス',self.host_box),('Gemini APIキー',self.key_box),('モデル',self.model_box)]):
+        for row,(caption,widget) in enumerate([('接続方式',ttk.Label(form,text='Wi-Fi')),('PCホットスポットのアドレス',self.host_box),('Gemini APIキー',self.key_box),('モデル',self.model_box)]):
             ttk.Label(form,text=caption).grid(row=row,column=0,sticky='w',padx=(0,16),pady=8)
             widget.grid(row=row,column=1,sticky='ew',pady=8)
         self.scan_button=ttk.Button(form,text='再検出',command=self.scan)
         self.scan_button.grid(row=0,column=2,padx=(10,0))
         self.voice_box=ttk.Combobox(form,textvariable=self.voice,state='readonly')
-        ttk.Label(form,text='声（日本語・採用済み）').grid(row=5,column=0,sticky='w',pady=8)
-        self.voice_box.grid(row=5,column=1,sticky='ew',pady=8)
+        ttk.Label(form,text='声（日本語・採用済み）').grid(row=4,column=0,sticky='w',pady=8)
+        self.voice_box.grid(row=4,column=1,sticky='ew',pady=8)
         self.voice_box.bind('<<ComboboxSelected>>',lambda _event:self.choose_voice())
-        ttk.Button(form,text='声を確認・管理',command=self.review_voices).grid(row=5,column=2,padx=10)
+        ttk.Button(form,text='声を確認・管理',command=self.review_voices).grid(row=4,column=2,padx=10)
         self.model_box.bind('<FocusOut>',lambda _event:self.refresh_voices())
         ttk.Label(outer,textvariable=self.voice_status,wraplength=740).pack(anchor='w',pady=3)
         sample_controls=ttk.Frame(outer);sample_controls.pack(fill='x',pady=5)
@@ -92,11 +85,10 @@ class HostApp:
         self.start_button.pack(side='left')
         self.stop_button=ttk.Button(buttons,text='停止',style='Action.TButton',command=self.stop,state='disabled')
         self.stop_button.pack(side='left',padx=12)
-        ttk.Button(buttons,text='USB認識の案内',command=lambda:webbrowser.open(DRIVER_URL)).pack(side='right')
         ttk.Label(outer,textvariable=self.status,wraplength=670,foreground='#115873',font=('Yu Gothic UI',11,'bold')).pack(anchor='w',fill='x',pady=8)
         self.history=tk.Text(outer,height=8,state='disabled',font=('Yu Gothic UI',10),background='#ffffff',foreground='#243b53',relief='flat',padx=12,pady=8)
         self.history.pack(fill='both',expand=True,pady=(4,10))
-        ttk.Label(outer,text='開始後：短押し → 呼びかけ → 開始音の終了から約0.7秒後に質問。\nWi-Fi方式は停止するまで動作します。USB診断は約10分で終了します。',wraplength=680).pack(anchor='w')
+        ttk.Label(outer,text='開始後：短押し → 呼びかけ → 開始音の終了から約0.7秒後に質問。\nWi-Fi接続は停止するまで動作します。',wraplength=680).pack(anchor='w')
         ttk.Label(outer,text=f'Windows 10/11 x64  ·  {VERSION}',foreground='#64778a').pack(anchor='w',pady=(10,0))
         ttk.Button(buttons,text='使い方・ライセンス',command=self.show_help).pack(side='right',padx=8)
         try:
@@ -129,34 +121,28 @@ class HostApp:
 
     def scan(self):
         if self.worker and self.worker.is_alive(): return
-        self.scan_button.configure(state='disabled'); self.status.set('USBポートとLANを確認しています…')
-        wireless=self.transport.get()=='Wi-Fi（USB不要）'
+        self.scan_button.configure(state='disabled'); self.status.set('ホットスポットを確認しています…')
         def work():
-            ports=[p.device for p in list_ports.comports()]
-            preferred=[p.device for p in list_ports.comports() if p.vid==0x303A]
-            try: hosts=sorted(hotspot_networks()) if wireless else local_addresses()
+            try: hosts=sorted(hotspot_networks())
             except Exception: hosts=[]
-            self.post('scan',(ports,preferred,hosts))
+            self.post('scan',hosts)
         threading.Thread(target=work,daemon=True).start()
 
     def set_running(self,value):
         self.start_button.configure(state='disabled' if value else 'normal')
         self.stop_button.configure(state='normal' if value else 'disabled')
         self.scan_button.configure(state='disabled' if value else 'normal')
-        self.port_box.configure(state='disabled' if value else 'readonly')
         self.host_box.configure(state='disabled' if value else 'readonly')
         self.key_box.configure(state='disabled' if value else 'normal')
         self.model_box.configure(state='disabled' if value else 'normal')
         self.remember_box.configure(state='disabled' if value else 'normal')
-        self.transport_box.configure(state='disabled' if value else 'readonly')
 
     def start(self):
         if self.preview_job:
             self.preview_status.set('試聴を停止してからホストを開始してください。');return
         key=self.key.get().strip(); model=self.model.get().strip()
-        wireless=self.transport.get()=='Wi-Fi（USB不要）'
-        if (not wireless and not re.fullmatch(r'COM[1-9][0-9]*',self.port.get())) or not is_lan(self.host.get()):
-            messagebox.showwarning('接続先の確認','接続先を選んでください。USB診断ではUSBポートも必要です。'); return
+        if not is_lan(self.host.get()):
+            messagebox.showwarning('接続先の確認','PCホットスポットのアドレスを選んでください。'); return
         if not valid_key(key) or not valid_model(model):
             messagebox.showwarning('設定の確認','Geminiキーとモデル名を確認してください。'); return
         self.refresh_voices()
@@ -170,21 +156,16 @@ class HostApp:
         try: save_settings(self.path,model=model,port=self.port.get(),host=self.host.get(),key=key,remember=self.remember.get(),voice=self.voice.get())
         except Exception:
             messagebox.showerror('設定保存','設定を保存できませんでした。保存先へのアクセスを確認してください。'); return
-        args=['--port',self.port.get(),'--host',self.host.get(),'--mode','gemini','--seconds','580']
         env=runtime_env(key,model,voice)
         while not self.commands.empty(): self.commands.get_nowait()
         self.stop_event.clear(); self.set_running(True); self.status.set('接続を準備しています…')
         def work():
             try:
-                if wireless:
-                    stable_node=runtime_node(runtime)
-                    result=run_wireless(runtime,stable_node,selected_host,env,self.stop_event,lambda text:self.post('status',text),
-                        self.commands,lambda event:self.post('voice-event',event))
-                else:
-                    result=run_device(args,runtime_root=runtime,node_path=node,stop_event=self.stop_event,
-                        on_status=lambda text:self.post('status',text),child_env=env)
+                stable_node=runtime_node(runtime)
+                result=run_wireless(runtime,stable_node,selected_host,env,self.stop_event,lambda text:self.post('status',text),
+                    self.commands,lambda event:self.post('voice-event',event))
             except Exception:
-                result=1; self.post('friendly','接続処理を完了できませんでした。設定とUSB接続を確認してください。')
+                result=1; self.post('friendly','接続処理を完了できませんでした。設定とWi-Fi接続を確認してください。')
             finally:
                 env.pop('GEMINI_API_KEY',None)
             self.post('done',result)
@@ -256,12 +237,11 @@ class HostApp:
         while not self.events.empty():
             kind,value=self.events.get_nowait()
             if kind=='scan':
-                ports,preferred,hosts=value
-                self.port_box.configure(values=ports); self.host_box.configure(values=hosts)
-                if self.port.get() not in ports: self.port.set((preferred or ports or [''])[0])
+                hosts=value
+                self.host_box.configure(values=hosts)
                 if self.host.get() not in hosts: self.host.set((hosts or [''])[0])
                 self.scan_button.configure(state='normal')
-                self.status.set('ホットスポットのアドレス・登録コード・Geminiキーを確認して開始してください。' if hosts else 'LANを検出できません。PCのモバイルホットスポットを有効にしてください。接続を確認して再検出してください。')
+                self.status.set('ホットスポットのアドレス・Geminiキー・声を確認して開始してください。' if hosts else 'LANを検出できません。PCのモバイルホットスポットを有効にしてください。接続を確認して再検出してください。')
             elif kind=='status':
                 friendly=self.friendly(value)
                 if friendly: self.log(friendly)
@@ -297,8 +277,6 @@ class HostApp:
         try: save_voice_setting(self.path,voice)
         except Exception: self.voice_status.set('声の設定を保存できませんでした。');return
         if self.running():
-            if self.transport.get()!='Wi-Fi（USB不要）':
-                self.voice_status.set('USB診断では停止・再開後に声が変わります。');return
             self.send_voice_command({'type':'voice','id':self.next_id(),'voice':voice})
             self.voice_status.set('変更待ち：'+voice+'（進行中の回答は変更しません）')
         else: self.voice_status.set('選択した声：'+voice)
@@ -351,8 +329,6 @@ class HostApp:
         if not self.sleep_confirmed.get(): self.preview_status.set('端末をSleepingにして、試聴用のチェックを入れてください。');return
         if voice not in self.reviews.candidates(model) or not valid_key(key):
             self.preview_status.set('声とGemini APIキーを確認してください。');return
-        if self.running() and self.transport.get()!='Wi-Fi（USB不要）':
-            self.preview_status.set('USB診断を停止してから試聴してください。');return
         job={'id':self.next_id(),'voice':voice,'model':model,'cancel':threading.Event(),'live':self.running(),'playing':False}
         self.preview_job=job;self.preview_status.set('日本語サンプルを生成しています…')
         if job['live']:
@@ -446,6 +422,7 @@ console.log(JSON.stringify({ok:result.pcm.length===2}));} finally {await app.clo
                 root=tk.Tk(); root.attributes('-alpha',0.0); root.withdraw(); app=HostApp(root,discover=False,config_path=Path(folder)/'ui.json')
                 root.deiconify()
                 root.update(); checks['gui']=app.start_button.cget('text')=='接続して開始' and app.remember.get() is False
+                checks['wifiOnly']=not hasattr(app,'transport_box') and not hasattr(app,'port_box') and not hasattr(app,'transport')
                 checks['noManualPairing']=not hasattr(app,'pair_box') and not hasattr(app,'pair_code') and not hasattr(app,'forget_button')
                 checks['voiceCatalog']=bool(app.reviews.candidates('gemini-3.8-live')) and not app.reviews.approved('gemini-3.8-live')
                 checks['voiceUi']=str(app.voice_box.cget('state'))=='readonly' and not app.sleep_confirmed.get()

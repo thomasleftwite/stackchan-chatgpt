@@ -1,6 +1,6 @@
 # 回答再生前200ms待機 R01
 
-2026-10-21。目的: 回答の冒頭約0.2秒欠けという利用者報告に対し、ToDoの端末修正を実装する。対象: AtomS3R + Atomic Voice Base A149、Wi-Fi/Gemini端末。端末への書込み・実聴は未実施。
+2026-10-21。目的: 回答の冒頭約0.2秒欠けという利用者報告に対し、ToDoの端末修正を実装する。対象: AtomS3R + Atomic Voice Base A149、Wi-Fi/Gemini端末。端末へのアプリ限定書込みとハッシュ検証は成功。利用者が「冒頭欠けは無し」と確認。
 
 ## 変更
 
@@ -23,8 +23,8 @@ PlatformIO / espressif32 6.11.0 / Arduino-ESP32 2.0.17、M5Unified 0.2.26、M5GF
 - 旧診断版: `.pio/firmware-snapshots/gemini-wake-diagnostic-20261021-r01.bin`、SHA256 `B432DB868E55F11B6CD8784D310D0C674CCFE457D4DD8D2A8DD710DC54DDE91A`不変。
 - 変更前の作業中ソース/テスト: `.pio/source-snapshots/reply-delay-before-20261021-r01/`に保持。
 
-## 導入・実聴確認（未実施）
+## 導入結果・実聴確認
 
-USB接続を確認し、`tools/inspect_device_partitions.py`と`tools/flash_application_only.py`を用いて、確認済みの実機表・候補SHAを明示してapp0 0x10000だけを書き込む。NVS/SPIFFS/登録パターン/保存Wi-Fi設定は書換え対象にしない。通常のUSB制御・監視は行わない。
+利用者の「USB接続済み」に基づき、COM4のESP32-S3-PICO-1 rev0.2へ導入。`tools/inspect_device_partitions.py`で実機表を`.pio/device-check/partitions-reply-delay-20261021-r01.bin`へ取得し、app0=0x10000/容量0x300000、NVS=0x9000、SPIFFS=0x610000を確認。`tools/flash_application_only.py`へ上記候補SHA・実機表を明示し、app0だけを書き込んだ。消去範囲0x10000～0x197FFF、1,602,400 bytes、Hash of data verified、終了コード0、RTSリセット成功。NVS/SPIFFS/登録パターン/保存Wi-Fi設定は書換え範囲外。書込み後のUSB監視・実API呼出しは行っていない。
 
-導入後は通常給電とWi-Fiへ戻し、PC Online / Sleepingから短押し→呼びかけ→ビープ終了約0.7秒後に質問する。最初の音節、口パク、回答終端、Ready復帰を複数回確認する。待機による冒頭欠け改善は実聴前のため未確認。改善しない場合は、音声自体の先頭と再生回路立上りを切り分け、無音PCMの先行駆動を別途検討する。
+導入後は通常給電とWi-Fiへ戻し、PC Online / Sleepingから短押し→呼びかけ→ビープ終了約0.7秒後に質問する。最初の音節、口パク、回答終端、Ready復帰を複数回確認する。導入後に利用者が「冒頭欠けは無し」と報告。口パク・待受復帰・反復回数は今回の報告では追加確認していない。改善しない場合は、音声自体の先頭と再生回路立上りを切り分け、無音PCMの先行駆動を別途検討する。

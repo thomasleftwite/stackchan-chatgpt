@@ -65,6 +65,8 @@ class VoiceFeatureTest(unittest.TestCase):
             root=tk.Tk();root.withdraw()
             try:
                 app=HostApp(root,discover=False,config_path=Path(folder)/'settings.json')
+                self.assertFalse(hasattr(app,'transport_box'))
+                self.assertFalse(hasattr(app,'port_box'))
                 self.assertEqual(str(app.voice_box.cget('state')),'readonly')
                 self.assertEqual(tuple(app.voice_box['values']),())
                 app.reviews.decide('gemini-3.8-live','Kore',True,pc_confirmed=True,device_confirmed=True)
@@ -92,4 +94,26 @@ class VoiceFeatureTest(unittest.TestCase):
                 restored=HostApp(root,discover=False,config_path=path)
                 self.assertEqual(tuple(restored.voice_box['values']),('Kore',))
                 self.assertEqual(restored.voice.get(),'Kore')
+            finally:root.destroy()
+
+    def test_wifi_only_scan_and_start_never_use_usb(self):
+        from unittest.mock import patch
+        with self.folder() as folder:
+            root=tk.Tk();root.withdraw()
+            try:
+                app=HostApp(root,discover=False,config_path=Path(folder)/'settings.json')
+                with patch('host_app.list_ports.comports',side_effect=AssertionError('USB enumeration forbidden')), patch('host_app.hotspot_networks',return_value=['192.168.137.1']):
+                    app.scan()
+                    event=app.events.get(timeout=3)
+                self.assertEqual(event,('scan',['192.168.137.1']))
+                app.post(*event);app.pump()
+                app.key.set('fixture-key-01234567890123456789')
+                app.pc_heard.add((app.model.get(),'Kore'))
+                app.decide_voice(app.model.get(),'Kore',True,'発音・読み・明瞭さが適切')
+                runtime=Path(folder)/'runtime';runtime.mkdir();node=runtime/'node.exe';node.touch()
+                with patch('host_app.runtime_root',return_value=runtime), patch('host_app.runtime_node',return_value=node), patch('host_app.run_wireless',return_value=0) as wireless:
+                    app.start();app.worker.join(timeout=3)
+                    self.assertFalse(app.worker.is_alive());wireless.assert_called_once()
+                app.pump()
+                self.assertEqual(app.host.get(),'192.168.137.1')
             finally:root.destroy()

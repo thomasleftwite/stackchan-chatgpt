@@ -16,6 +16,7 @@ struct File {
   void close() { opened=false; }
 };
 struct Filesystem {
+  bool begin(bool) { return true; }
   File open(const String& p,const char*) { return File{p,0,disk.count(p)!=0}; }
   bool remove(const String& p) {
     if(failRemoveBackup && p.find(".bak")!=std::string::npos) return false;
