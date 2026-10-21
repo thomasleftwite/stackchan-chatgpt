@@ -1,6 +1,6 @@
 # Stackchan-chatgpt
 
-最新の導入候補は[0.6.0 RC1](docs/RELEASE_CANDIDATE_0_6_0_2026-10-21.md)。端末の診断表示を削除し、ホストをWi-Fi固定に整理。ビルド・模擬検証済み、実機未導入です。
+最新の導入候補は[0.6.0 RC1](docs/RELEASE_CANDIDATE_0_6_0_2026-10-21.md)。端末の診断表示を削除し、ホストをWi-Fi固定に整理。ビルド・模擬検証と端末へのアプリ限定書込みは成功。RC1の実機動作確認待ちです。
 
 AtomS3R + Atomic Voice Base A149の音声対話端末。現在はWindowsホスト0.5.0-preview.1経由でGemini Liveを利用します。C++ / Arduino-ESP32 / PlatformIOで開発しています。
 

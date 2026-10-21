@@ -6,7 +6,7 @@
 
 | 状態 | 項目 | 完了日 | 成果物・検証 |
 |---|---|---|---|
-| 完了（候補作成・模擬検証）／実機未導入 | 端末診断表示削除・モード中心表示・ホストWi-Fi固定 | 2026-10-21 | [RC1記録](docs/RELEASE_CANDIDATE_0_6_0_2026-10-21.md)。releases/StackchanHost-0.6.0-rc.1-win-x64/StackchanHost.exe、releases/Stackchan-AtomS3R-0.6.0-rc.1/firmware.bin。Python49/Node37/C++169/3構成ビルド/EXE15項目成功。新候補の実機統合試験は未実施 |
+| 完了（候補作成・模擬検証・アプリ書込み）／実機確認待ち | 端末診断表示削除・モード中心表示・ホストWi-Fi固定 | 2026-10-21 | [RC1記録](docs/RELEASE_CANDIDATE_0_6_0_2026-10-21.md)。releases/StackchanHost-0.6.0-rc.1-win-x64/StackchanHost.exe、releases/Stackchan-AtomS3R-0.6.0-rc.1/firmware.bin。Python49/Node37/C++169/3構成ビルド/EXE15項目成功。COM4 app0へ導入・ハッシュ検証成功。保存領域は書換え対象外。新候補の実機統合試験は未実施 |
 
 ## 発話前ウェイト・ホストの声質選択（2026-10-21）
 
