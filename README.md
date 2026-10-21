@@ -1,96 +1,36 @@
-# Stackchan-chatgpt
+# Stackchan 音声対話端末
 
-最新の導入候補は[0.6.0 RC1](docs/RELEASE_CANDIDATE_0_6_0_2026-10-21.md)。端末の診断表示を削除し、ホストをWi-Fi固定に整理。ビルド・模擬検証と端末へのアプリ限定書込みは成功。RC1の実機動作確認待ちです。
+AtomS3R + Atomic Voice Base A149を、Windowsホスト経由でGemini Liveへ接続する音声対話システムです。現行版は **0.6.0-rc.1**。端末とホストはWi-Fiで接続し、通常利用にUSB操作・監視は不要です。
 
-AtomS3R + Atomic Voice Base A149の音声対話端末。現在はWindowsホスト0.5.0-preview.1経由でGemini Liveを利用します。C++ / Arduino-ESP32 / PlatformIOで開発しています。
+## 起動と操作
 
-声の選択・PCでの日本語サンプル試聴を追加した[ホスト0.6.0-preview.2の修正記録](docs/STACKCHANHOST_VOICE_PC_ADOPTION_2026-10-21.md)。日本語の声はPCサンプルの試聴後に採用し、即時に通常プルダウンへ追加・選択します。端末での確認は不要です。現在は採用0件で、実API試聴は未実施。最新手順は[Windows利用説明](desktop/README.ja.md)を参照してください。
+1. PCをインターネットへ接続し、2.4GHzのモバイルホットスポットを有効にします。
+2. Windowsホストを起動し、ホットスポットのアドレス・Gemini APIキー・採用済みの声を確認して開始します。声はPCサンプル試聴後に採用でき、一覧へ即時追加・保存されます。
+3. 端末のPC Online / Sleepingを確認し、短押しでReadyへ移行します。
+4. 登録した呼びかけの後、ビープ終了から約0.7秒後に質問します。回答音声と口パクの後、待受へ戻ります。
 
-**再開時は [開発経緯と現在地](docs/RESUME.md) を最初に参照してください。** 2026-10-21に資料を整理しました。[改訂前の資料](docs/archive/2026-10-21/README.md)は保管済みです。
+初回Wi-Fi設定、3回の呼びかけ登録、声の試聴・採用は[Windows利用手順](desktop/README.ja.md)を参照してください。APIキーはホストだけで使用し、保存を選んだ場合はWindowsユーザー専用に暗号化します。
 
-## 現行のWindows版
+## 現行構成
 
-PCの2.4GHzモバイルホットスポットに接続した端末を受け付けます。4行コードや通常利用時のUSB接続は不要。端末はDHCPゲートウェイへ自動接続し、ホストはホットスポット側IPv4と同じサブネットへ受付を限定します。通常経路はHTTP/WSで、Wi-Fiの暗号化・パスワードを保護と信頼の境界にします。APIキーはPCだけで使います。
+端末がローカルで呼びかけを検出し、16kHz PCMの質問音声をWi-Fiでホストへ送ります。ホストがGemini Liveへ中継し、24kHz PCMの回答を端末で再生します。録音・再生は半二重、現在は1質問1回答です。
 
-- [Windows版の起動・初回設定・操作](desktop/README.ja.md)
-- [構成・成果物・検証の詳細](docs/HOTSPOT_TRUST.md)
-- [構成説明スライド（PowerPoint）](docs/architecture-slide.pptx) / [保管・復旧手順](docs/ARCHITECTURE_SLIDE_PRESERVATION.md)
-- [開発タスクと時点別履歴](TODO.md)
+ホストはWi-Fi固定。端末画面は上段のモードと顔・接続状態を表示し、開発用レベルモニタは表示しません。回答はスピーカー有効化から200ms待って再生します。通常の通信はホットスポット内HTTP/WS、クラウド側はWSSです。
 
-コードなし接続、呼びかけ3回登録、呼びかけから回答音声・口パク・待受復帰、端末リセット後の再接続と再会話を実機で基本確認済み。開始合図は「準備完了→ビープ→終了から約0.7秒後に発話」です。1質問1回答の半二重で、長期精度・電源断・別PC・Raspberry Pi移行は未検証です。
+## 確認状況
 
-最終コード検証はPython39/Node32/C++145項目、3構成ビルド、EXE自己診断11項目成功。今回の資料改訂ではアプリ変更・実機操作・API呼出しは行っていません。
+RC1導入後の確認依頼に対し、利用者が「ok」と回答しました。直前の200ms待機版では「冒頭欠けは無し」を明示確認済みです。リセット後の再接続・会話も基本確認済み。これらは長期の検出精度・誤検出率や別PCでの品質を保証する試験ではありません。
 
-## 従来の端末単体版について
+Python49件、Node37件、C++169項目、端末3構成ビルド、最終EXE自己診断15項目が成功。[検証と未確認事項](docs/validation.md)を参照してください。
 
-以下は旧0.1.0-dev向けの資料です。現在のWindows中継版の起動・操作には上記リンクを使用してください。旧版は端末内でOpenAI文字起こし→Gemini回答生成→OpenAI読み上げを行い、APIキーを端末SPIFFSへ保存する別構成です。
+## 文書・開発
 
-## 従来の端末単体版セットアップ
+- [構成スライド](docs/architecture-slide.pptx)
+- [再開時の現在地](docs/RESUME.md) / [短い開発履歴](docs/DEVELOPMENT_HISTORY.md)
+- [ToDo・将来構想](TODO.md) / [RC1成果物・導入記録](docs/RELEASE_CANDIDATE_0_6_0_2026-10-21.md)
+- [通信と信頼の範囲](docs/HOTSPOT_TRUST.md) / [固定依存](docs/dependencies.md)
+- [資料整理前の文書](docs/archive/2026-10-21/rc1-before-compaction/README.md)
 
-1. VS Codeでこのフォルダを開き、PlatformIO拡張をインストールします。
-2. `data/secrets.example.json` を `data/secrets.json` にコピーし、OpenAIとGeminiのAPIキーを入力します。キーのファイルはGit管理対象外です。
-3. `data/config.yaml` でモデル、音量、呼びかけ名などを設定します。モデルは各アカウントで利用可能なものを指定してください。
-4. PlatformIOの `atoms3r` 環境をBuildし、USBでファームウェアをUploadします。
-5. 同じ環境の `Upload Filesystem Image` を実行します。ファイルシステムの書き込みは既存の設定・登録音声特徴を置き換えます。既に登録済みの場合は再登録が必要です。
-6. 初回起動時の画面に出る `Stackchan-Setup` のパスワードでスマートフォン等を接続し、Wi-Fiを設定します。画面が自動表示されなければ `http://192.168.4.1` を開きます。
+端末はPlatformIOの`atoms3r-gemini-device`を使用します。ホストのソースは`desktop/`、中継は`server/`です。APIキー・Wi-Fi設定・登録特徴・個人設定・音声はGit対象外。端末更新は実機表とSHAを確認してアプリ領域だけを書き込み、NVS/SPIFFSを保持します。
 
-### APIキーの設定先
-
-ローカルの `data/secrets.json` に設定します。`gemini_api_key` はGemini回答生成、`openai_api_key` は音声の文字起こしと読み上げに使用し、会話開始には両方が必要です。キーはチャット、README、config.yaml、サンプルファイルへ記載しないでください。
-
-`data/secrets.json` とそのバックアップ（`data/secrets.json.*`）は `.gitignore` で除外します。GitHubには空の `data/secrets.example.json` だけを含め、キーを含むSPIFFSイメージや `.pio` 内の生成物も公開しません。無視対象かどうかと、既に追跡されていないかは別々に確認します。
-
-PC上で保存しただけでは端末へ反映されません。端末は起動時にSPIFFS内の `/secrets.json` を読みます。Filesystemの再書込みは現在の呼びかけ登録も置き換えるため、端末への導入は登録保持方針を確認して行ってください。
-
-CLIでは `pio run`、`pio run -t upload`、`pio run -t uploadfs`、`pio device monitor` を使用します。
-Uploadに失敗する場合はAtomS3Rをリセットボタン長押しでダウンロードモードにし、USBポートを確認してください。
-
-## 操作
-
-- 短押し: 会話開始。接続完了後の開始音を待ってから話します。
-- 待機中に2秒長押し: 呼びかけの録音登録。ボタンを離し、開始音が終わって「呼びかけを話してください」と表示されてから「スタックちゃん」と話します。登録は端末内で行います。
-- 登録後: 登録した呼びかけで会話を開始できます。開始音を待ってから質問してください。
-- 会話中: 発話が止まると回答します。回答終了後に再び開始音が鳴り、次の質問を受け付けます。無発話が続くと待機へ戻ります。
-- 登録中に短押し: 登録をキャンセルします。
-- 画面ボタンを押しながら起動: Wi-Fi再設定。リセットボタンとは別のボタンです。
-
-音声検出は話者認証ではありません。別の人やテレビの音声に反応する場合があります。
-
-## 設定変更
-
-`wake_word.phrase` は表示名です。名前の変更だけでは検出対象は変わりません。
-呼びかけ変更時は設定を書き換えた後、新しい呼びかけを録音登録します。
-変更した設定はファイルシステムへ再書き込みし、再起動すると反映されます。
-
-`distance_threshold` を小さくすると判定が厳しくなります。シリアルログの `Wake distance` と実際の検出結果を見て調整してください。
-無音でも反応する場合は `audio.energy_threshold` を上げ、声が検出されない場合は下げます。
-
-Atomic Voice Baseではマイク増幅を4倍、開始音を1,200 Hz・0.5秒にしています。増幅は登録用16 kHzと会話用24 kHzで共通ですが、24 kHzの実API音声品質は未検証です。増幅変更前の呼びかけ特徴を使用している場合は再登録してください。
-
-## 通信と制約
-
-待機中・登録中の音声は外部送信しません。ボタン/ウェイク検出後の会話モードでのみ音声を送信し、待機時の録音は破棄します。会話中の聞き取りでは無音区間もAPIへ送られます。
-APIキーは端末のSPIFFSに平文で保存されます。第三者へ端末やファイルシステムイメージを渡す前にキーを削除してください。
-TLS証明書検証を必須とし、初回接続前に時刻同期します。`data/ca.pem` はMozillaの公開CA集合です。
-
-Realtimeでの読み上げは生成モデルによるもので、Gemini回答の逐語一致を保証しません。
-接続は段階ごとに切り替えるため、音声応答まで待ち時間があります。初期版はGemini回答全体を受信してから音声化します。
-会話履歴はRAM上で最大4往復、会話終了時に破棄します。各ターンの開始前に10分の会話上限を確認します。進行中の通信・再生は個別のタイムアウトまで続くため、終了時刻が10分を超える場合があります。
-
-APIエラー・切断時はその会話を終了し、待機へ戻ります。同じ発話を自動再送しません。
-カメラ、サーボ、MCP、OTA更新、Gemini Liveへの自動切替は含みません。
-
-## 資料
-
-- [実装方針](docs/implementation-plan.md)
-- [設計調査](docs/design-research.md)
-- [依存ライブラリ](docs/dependencies.md)
-- [検証記録](docs/validation.md)
-
-## 開発時の検証
-
-`pio run -e atoms3r` でファームウェア、`pio run -e atoms3r -t buildfs` でSPIFFSイメージを生成します。いずれも実機へ書き込みません。
-
-`python tools/run_host_tests.py` で実際のC++発話判定・登録ファイルヘッダー検証をPC上で実行します。C++17対応のGCC/Clang、またはVisual Studio C++ Build Toolsが必要です。Windowsではインストール済みのMSVCを自動検出します。
-
-ビルド時に `tools/prepare_websockets.py` がこの案件の `.pio/libdeps` 内にあるWebSockets 2.7.3のESP32受信上限定義へガードを追加します。設定した128 KiBが上書きされる問題への対処で、想定外のソースではビルドを停止します。詳細は [依存関係](docs/dependencies.md) を参照してください。
+旧0.1.0-devの端末単体OpenAI併用版は[保管した旧README](docs/archive/2026-10-21/rc1-before-compaction/README-before-compaction.md)を参照してください。将来のESP32-S3直結Gemini構想とは別の履歴です。
