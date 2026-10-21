@@ -2,7 +2,7 @@
 
 AtomS3R + Atomic Voice Base A149の音声対話端末。現在はWindowsホスト0.5.0-preview.1経由でGemini Liveを利用します。C++ / Arduino-ESP32 / PlatformIOで開発しています。
 
-声の選択・PCでの日本語サンプル試聴を追加した[ホスト0.6.0-preview.1の実装記録](docs/STACKCHANHOST_VOICE_IMPLEMENTATION_2026-10-21.md)。日本語合格声は利用者のPC/端末確認後に採用します。現在は採用0件で、実API試聴は未実施。最新手順は[Windows利用説明](desktop/README.ja.md)を参照してください。
+声の選択・PCでの日本語サンプル試聴を追加した[ホスト0.6.0-preview.2の修正記録](docs/STACKCHANHOST_VOICE_PC_ADOPTION_2026-10-21.md)。日本語の声はPCサンプルの試聴後に採用し、即時に通常プルダウンへ追加・選択します。端末での確認は不要です。現在は採用0件で、実API試聴は未実施。最新手順は[Windows利用説明](desktop/README.ja.md)を参照してください。
 
 **再開時は [開発経緯と現在地](docs/RESUME.md) を最初に参照してください。** 2026-10-21に資料を整理しました。[改訂前の資料](docs/archive/2026-10-21/README.md)は保管済みです。
 

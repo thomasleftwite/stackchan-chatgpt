@@ -21,8 +21,8 @@ class VoiceFeatureTest(unittest.TestCase):
         with self.folder() as folder:
             r=VoiceReviews(Path(folder)/'voices.json');model='gemini-3.8-live'
             self.assertIn('Kore',r.candidates(model));self.assertEqual(r.approved(model),[])
-            with self.assertRaises(ValueError):r.decide(model,'Kore',True,pc_confirmed=True)
-            r.decide(model,'Kore',True,pc_confirmed=True,device_confirmed=True,app_version='test')
+            with self.assertRaises(ValueError):r.decide(model,'Kore',True)
+            r.decide(model,'Kore',True,pc_confirmed=True,app_version='test')
             self.assertEqual(VoiceReviews(r.path).approved(model),['Kore'])
             r.decide(model,'Kore',False,reason='発音が不自然');self.assertEqual(r.approved(model),[])
     def test_model_and_catalog_revision_require_new_review(self):
@@ -73,8 +73,23 @@ class VoiceFeatureTest(unittest.TestCase):
                 self.assertEqual(json.loads(app.path.read_text())['voice'],'Kore')
                 app.session_busy=True;app.preview('Kore');self.assertIsNone(app.preview_job)
                 app.preview_job={'id':1};app.start();self.assertIn('試聴を停止',app.preview_status.get());app.preview_job=None
-                from unittest.mock import Mock
-                app.worker=Mock();app.worker.is_alive.return_value=True;app.transport.set('USB診断（従来）')
-                app.pc_heard.add(('gemini-3.8-live','Puck'));app.review_device('gemini-3.8-live','Puck')
-                self.assertEqual(app.evaluation_voice,'');self.assertIn('USB診断を停止',app.preview_status.get())
+            finally:root.destroy()
+
+    def test_pc_sample_adoption_immediately_updates_dropdown_and_survives_restart(self):
+        with self.folder() as folder:
+            root=tk.Tk();root.withdraw()
+            try:
+                path=Path(folder)/'settings.json'
+                app=HostApp(root,discover=False,config_path=path)
+                model=app.model.get().strip()
+                app.decide_voice(model,'Kore',True,'発音・読み・明瞭さが適切')
+                self.assertEqual(tuple(app.voice_box['values']),())
+                app.pc_heard.add((model,'Kore'))
+                app.decide_voice(model,'Kore',True,'発音・読み・明瞭さが適切')
+                self.assertEqual(tuple(app.voice_box['values']),('Kore',))
+                self.assertEqual(app.voice.get(),'Kore')
+                self.assertEqual(json.loads(path.read_text())['voice'],'Kore')
+                restored=HostApp(root,discover=False,config_path=path)
+                self.assertEqual(tuple(restored.voice_box['values']),('Kore',))
+                self.assertEqual(restored.voice.get(),'Kore')
             finally:root.destroy()

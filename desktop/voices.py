@@ -37,11 +37,10 @@ class VoiceReviews:
     def approved(self,model):
         return [v for v in self.candidates(model) if self.records.get(model+':'+v,{}).get('status')=='approved'
                 and self.records[model+':'+v].get('revision')==self.catalog['revision']
-                and self.records[model+':'+v].get('pcJapanese') is True
-                and self.records[model+':'+v].get('deviceJapanese') is True]
+                and self.records[model+':'+v].get('pcJapanese') is True]
     def decide(self,model,voice,approved,*,pc_confirmed=False,device_confirmed=False,app_version='',reason='発音・読み・明瞭さが適切'):
         if voice not in self.candidates(model): raise ValueError('INVALID_VOICE')
-        if approved and not (pc_confirmed and device_confirmed): raise ValueError('JAPANESE_REVIEW_REQUIRED')
+        if approved and not pc_confirmed: raise ValueError('JAPANESE_REVIEW_REQUIRED')
         status='approved' if approved else 'excluded'
         if reason not in REVIEW_REASONS[status]: raise ValueError('REVIEW_REASON_REQUIRED')
         records=dict(self.records)

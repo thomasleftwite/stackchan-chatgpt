@@ -42,7 +42,7 @@ class HostApp:
         self.stop_event=threading.Event(); self.worker=None; self.closing=False
         self.events=queue.Queue(maxsize=256)
         self.commands=queue.Queue(maxsize=32);self.request_id=0;self.session_busy=False
-        self.preview_job=None;self.pc_heard=set();self.device_heard=set();self.evaluation_voice=''
+        self.preview_job=None;self.pc_heard=set()
         self.reviews=VoiceReviews(self.path.with_name('voice-reviews.json'))
         self.voice=tk.StringVar();self.voice_status=tk.StringVar(value='日本語の声を確認して採用してください。')
         self.preview_status=tk.StringVar(value='試聴はPCの再生先から流れ、Gemini APIを使用します。')
@@ -160,9 +160,9 @@ class HostApp:
         if not valid_key(key) or not valid_model(model):
             messagebox.showwarning('設定の確認','Geminiキーとモデル名を確認してください。'); return
         self.refresh_voices()
-        voice=self.evaluation_voice or self.voice.get()
-        if voice not in self.reviews.candidates(model):
-            messagebox.showwarning('日本語の声','「声を確認・管理」でPC試聴し、端末で確認する声を指定してください。');return
+        voice=self.voice.get()
+        if voice not in self.reviews.approved(model):
+            messagebox.showwarning('日本語の声','「声を確認・管理」でPCサンプルを聴き、声を採用してください。');return
         selected_host=self.host.get()
         runtime=runtime_root(); node=runtime/'node.exe'
         if not node.is_file():
@@ -270,7 +270,7 @@ class HostApp:
             elif kind=='preview-play': self.play_preview(*value)
             elif kind=='preview-ended': self.preview_ended(*value)
             elif kind=='done':
-                self.session_busy=False;self.evaluation_voice='';self.stop_preview()
+                self.session_busy=False;self.stop_preview()
                 self.set_running(False)
                 if self.closing: self.root.destroy(); return
         self.root.after(100,self.pump)
@@ -296,7 +296,6 @@ class HostApp:
         if voice not in self.reviews.approved(model): return
         try: save_voice_setting(self.path,voice)
         except Exception: self.voice_status.set('声の設定を保存できませんでした。');return
-        self.evaluation_voice=''
         if self.running():
             if self.transport.get()!='Wi-Fi（USB不要）':
                 self.voice_status.set('USB診断では停止・再開後に声が変わります。');return
@@ -315,49 +314,33 @@ class HostApp:
             previous.set(('前回：'+record.get('status','')+' / '+record.get('reason','')+' / '+record.get('date','')) if record else 'このモデルでは未評価です。')
         box.bind('<<ComboboxSelected>>',show_previous)
         ttk.Label(frame,textvariable=previous,wraplength=680).pack(anchor='w',pady=3)
-        ttk.Label(frame,text='ここは評価候補です。未確認の声は通常の一覧へ出ません。\nPC試聴 → 端末で質問・回答を確認 → 日本語が適切なら採用します。',wraplength=650).pack(anchor='w',pady=8)
+        ttk.Label(frame,text='候補を選んでPCサンプルを最後まで聴き、日本語が適切なら採用します。\n採用すると通常の一覧へすぐに追加・選択されます。端末での確認は不要です。',wraplength=650).pack(anchor='w',pady=8)
         ttk.Checkbutton(frame,text='端末をSleepingにしました（試聴時）',variable=self.sleep_confirmed).pack(anchor='w',pady=5)
         reason=tk.StringVar(value=REVIEW_REASONS['approved'][0])
         ttk.Label(frame,text='判定理由（採用・除外の前に選択）').pack(anchor='w')
         ttk.Combobox(frame,textvariable=reason,values=REVIEW_REASONS['approved']+REVIEW_REASONS['excluded'],state='readonly').pack(fill='x',pady=5)
         ttk.Button(frame,text='候補の日本語サンプルを聴く',command=lambda:self.preview(candidate.get())).pack(anchor='w',pady=5)
-        ttk.Button(frame,text='この声を端末で確認',command=lambda:self.review_device(model,candidate.get())).pack(anchor='w',pady=5)
         ttk.Button(frame,text='日本語に適する：採用',command=lambda:self.decide_voice(model,candidate.get(),True,reason.get())).pack(anchor='w',pady=5)
         ttk.Button(frame,text='日本語に適さない：除外',command=lambda:self.decide_voice(model,candidate.get(),False,reason.get())).pack(anchor='w',pady=5)
         ttk.Button(frame,text='試聴を停止',command=self.stop_preview).pack(anchor='w',pady=5)
         ttk.Label(frame,textvariable=self.preview_status,wraplength=650).pack(anchor='w',pady=8)
 
-    def review_device(self,model,voice):
-        if self.running() and self.transport.get()!='Wi-Fi（USB不要）':
-            self.preview_status.set('USB診断を停止し、Wi-Fi方式で端末の声を確認してください。');return
-        if (model,voice) not in self.pc_heard:
-            self.preview_status.set('先に候補のPCサンプルを最後まで試聴してください。');return
-        if self.preview_job:
-            self.preview_status.set('試聴を停止してから端末で確認してください。');return
-        if model!=self.model.get().strip() or voice not in self.reviews.candidates(model): return
-        self.evaluation_voice=voice
-        if self.running():
-            self.send_voice_command({'type':'voice','id':self.next_id(),'voice':voice})
-        else: self.start()
-        self.voice_status.set('評価中の声：'+voice+'。端末を起こして質問し、日本語の回答を確認してください。')
-        self.sleep_confirmed.set(False)
-
     def decide_voice(self,model,voice,approved,reason):
         if model!=self.model.get().strip() or voice not in self.reviews.candidates(model): return
         if reason not in REVIEW_REASONS['approved' if approved else 'excluded']:
             self.preview_status.set('採用・除外に合う判定理由を選択してください。');return
-        if approved and ((model,voice) not in self.pc_heard or (model,voice) not in self.device_heard):
-            self.preview_status.set('PC試聴と、この声の端末回答の確認が両方必要です。');return
+        if approved and (model,voice) not in self.pc_heard:
+            self.preview_status.set('先にこの声のPCサンプルを最後まで試聴してください。');return
         try: self.reviews.decide(model,voice,approved,pc_confirmed=(model,voice) in self.pc_heard,
-            device_confirmed=(model,voice) in self.device_heard,app_version=VERSION,reason=reason)
+            app_version=VERSION,reason=reason)
         except Exception: self.preview_status.set('声の評価を保存できませんでした。');return
-        was_active=self.evaluation_voice==voice or self.voice.get()==voice
+        was_active=self.voice.get()==voice
         self.refresh_voices()
         if approved:
             self.voice.set(voice);self.choose_voice();self.preview_status.set(voice+'を採用しました。')
         else:
             if was_active:
-                self.evaluation_voice='';self.voice.set('')
+                self.voice.set('')
                 if self.running(): self.stop()
             self.preview_status.set(voice+'を通常の一覧から除外しました。')
 
@@ -421,7 +404,6 @@ class HostApp:
             self.voice_status.set('この会話の声：'+str(event.get('voice','')))
         elif kind=='session-idle': self.session_busy=False
         elif kind=='voice-selected': self.voice_status.set('次の質問の声：'+str(event.get('voice','')))
-        elif kind=='voice-played': self.device_heard.add((event.get('model'),event.get('voice')))
         elif kind=='voice-failed': self.voice_status.set('声を適用できませんでした。モデルと声の対応を確認してください。')
         elif kind=='preview-conflict': self.preview_status.set('試聴中に端末の質問が来ました。試聴を停止し、端末をSleepingにしてください。')
         elif kind=='preview-audio':
