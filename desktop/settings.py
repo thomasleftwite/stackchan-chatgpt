@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import re
 
-VERSION = '0.5.0-preview.1'
+VERSION = '0.6.0-preview.1'
 
 def valid_key(value):
     return isinstance(value, str) and bool(re.fullmatch(r'[\x21-\x7e]{20,256}', value))
@@ -42,9 +42,12 @@ def settings_path():
     parent = os.environ.get('STACKCHAN_HOST_STATE_DIR')
     return Path(parent) / 'settings.json' if parent else Path(os.environ['LOCALAPPDATA']) / 'StackchanHost' / 'settings.json'
 
-def save_settings(path, *, model, port, host, key='', remember=False):
+def save_settings(path, *, model, port, host, key='', remember=False, voice=''):
     if not valid_model(model) or (key and not valid_key(key)): raise ValueError('INVALID_SETTINGS')
     data = {'version':1, 'model':model, 'port':port, 'host':host}
+    if voice:
+        if not re.fullmatch('[A-Za-z]{1,32}',voice): raise ValueError('INVALID_VOICE')
+        data['voice']=voice
     if remember and key: data['protectedKey'] = base64.b64encode(crypt(key.encode())).decode('ascii')
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix('.new')
@@ -60,3 +63,12 @@ def load_settings(path):
         data['key'] = crypt(base64.b64decode(data['protectedKey'], validate=True), True).decode('utf-8')
         if not valid_key(data['key']): raise ValueError('INVALID_SETTINGS')
     return data
+
+def save_voice_setting(path,voice):
+    """Update only voice; never re-encrypt, remove, or expose a remembered key."""
+    if not re.fullmatch('[A-Za-z]{1,32}',voice): raise ValueError('INVALID_VOICE')
+    data=json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'version':1}
+    if data.get('version')!=1: raise ValueError('INVALID_SETTINGS')
+    data['voice']=voice
+    path.parent.mkdir(parents=True,exist_ok=True)
+    temp=path.with_suffix('.new');temp.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8');os.replace(temp,path)
