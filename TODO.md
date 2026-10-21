@@ -10,7 +10,7 @@
 | 完了 | 声の選択・PC試聴・採用・保存 | 2026-10-21。desktop/host_app.pyほか。PC試聴だけで採用し即時一覧反映。[実装記録](docs/STACKCHANHOST_VOICE_PC_ADOPTION_2026-10-21.md) |
 | 完了 | 回答前200ms待機 | 2026-10-21。src/LocalGemini.cpp。アプリ限定導入後、利用者が冒頭欠け無しを確認。[記録](docs/REPLY_START_DELAY_2026-10-21.md) |
 | 完了（候補） | RC1の表示整理・ホストWi-Fi固定 | 2026-10-21。releases/StackchanHost-0.6.0-rc.1-win-x64/StackchanHost.exe、releases/Stackchan-AtomS3R-0.6.0-rc.1/firmware.bin。Python49/Node37/C++169/3構成/EXE15項目成功。利用者が導入後確認にokと回答。[記録](docs/RELEASE_CANDIDATE_0_6_0_2026-10-21.md) |
-| 作業中 | README・構成スライド・開発記録の整理、GitHub push/merge、EXE公開 | 2026-10-21。秘密設定を除外し、旧文書を保管して更新。公開完了は同期記録で確認 |
+| 完了 | README・構成スライド・開発記録の整理、GitHub push/merge、EXE公開 | 2026-10-21。[PR #7](https://github.com/thomasleftwite/stackchan-chatgpt/pull/7) main統合済み、[RC1 Release](https://github.com/thomasleftwite/stackchan-chatgpt/releases/tag/v0.6.0-rc.1)へEXE等7件公開、全SHA/サイズ一致。旧全文保管・秘密設定5パス保持。[公開記録](docs/GITHUB_RC1_SYNC_2026-10-21.md) |
 
 ## 継続検証
 

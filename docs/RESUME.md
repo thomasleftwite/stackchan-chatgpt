@@ -23,6 +23,8 @@ RC1導入の書込みハッシュ検証成功。導入後の表示/会話/待受
 - [成果物の全SHA・導入証拠](RELEASE_CANDIDATE_0_6_0_2026-10-21.md)
 - 端末: PlatformIO espressif32 6.11.0 / Arduino-ESP32 2.0.17。ホスト配布: Python3.14.4 / Node24.15.0。固定依存はplatformio.ini / server/package-lock.json。
 
+GitHubは[PR #7](https://github.com/thomasleftwite/stackchan-chatgpt/pull/7)でmainへ統合済み。検証済みEXE等は[RC1 Release](https://github.com/thomasleftwite/stackchan-chatgpt/releases/tag/v0.6.0-rc.1)へ公開。個人設定・キーは含めない。
+
 ## 次に読むもの
 
 [利用手順](../desktop/README.ja.md) → [通信仕様](HOTSPOT_TRUST.md) → [ToDo](../TODO.md)。Raspberry Pi OS版、macOS版、ESP32-S3直接Gemini構成は将来の未着手項目。今回は実装しない。

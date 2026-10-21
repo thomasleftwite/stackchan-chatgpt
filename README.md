@@ -2,6 +2,8 @@
 
 AtomS3R + Atomic Voice Base A149を、Windowsホスト経由でGemini Liveへ接続する音声対話システムです。現行版は **0.6.0-rc.1**。端末とホストはWi-Fiで接続し、通常利用にUSB操作・監視は不要です。
 
+[EXE・端末ファームウェアのダウンロード（RC1）](https://github.com/thomasleftwite/stackchan-chatgpt/releases/tag/v0.6.0-rc.1) / [統合PR #7](https://github.com/thomasleftwite/stackchan-chatgpt/pull/7)
+
 ## 起動と操作
 
 1. PCをインターネットへ接続し、2.4GHzのモバイルホットスポットを有効にします。

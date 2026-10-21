@@ -1,6 +1,6 @@
 # 0.6.0 リリース候補 RC1
 
-2026-10-21 / R02。対象: AtomS3R + Atomic Voice Base A149とWindows 10/11 x64ホスト。目的: デバッグ表示と接続方式の選択を整理し、通常利用向けの候補を用意する。端末アプリ限定書込み・ハッシュ検証成功。GitHub Release公開は準備中。利用者がRC1導入後の確認依頼に「ok」と回答。
+2026-10-21 / R02。対象: AtomS3R + Atomic Voice Base A149とWindows 10/11 x64ホスト。目的: デバッグ表示と接続方式の選択を整理し、通常利用向けの候補を用意する。端末アプリ限定書込み・ハッシュ検証成功。[GitHub Release RC1](https://github.com/thomasleftwite/stackchan-chatgpt/releases/tag/v0.6.0-rc.1)へEXE等を公開済み。利用者がRC1導入後の確認依頼に「ok」と回答。
 
 ## 今回の変更
 
