@@ -3,6 +3,7 @@ import ctypes as C
 from pathlib import Path
 import sys
 import unittest
+import threading
 from unittest.mock import patch, Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
@@ -116,6 +117,16 @@ class ProvisioningProbeTest(unittest.TestCase):
         self.assertTrue(report['configurationSent'])
         self.assertTrue(report['configurationResponseUnknown'])
         connection.close.assert_called_once()
+
+    def test_cancel_during_tcp_connect_prevents_post(self):
+        cancel=threading.Event();connection=Mock();connection.connect.side_effect=cancel.set
+        report={}
+        with patch.object(probe.http.client,'HTTPConnection',return_value=connection):
+            probe.send_configuration('192.168.4.2',{'ssid':'fixture','password':'x'*12},report,cancel)
+        connection.request.assert_not_called()
+        connection.close.assert_called_once()
+        self.assertTrue(report['configurationCancelled'])
+        self.assertFalse(report.get('configurationAttempted',False))
 
     def test_http_200_requires_expected_wifimanager_receipt_and_redacts_values(self):
         for body, accepted in ((b'Unrelated page', False), (b'Saving Credentials', True)):

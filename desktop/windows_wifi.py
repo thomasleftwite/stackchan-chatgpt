@@ -251,12 +251,19 @@ if($null -eq $c.AuthenticationKind -or $c.AuthenticationKind.ToString() -ne 'Wpa
     return credentials
 
 
-def send_configuration(source, credentials, report):
+def send_configuration(source, credentials, report, cancel=None):
     conn = http.client.HTTPConnection('192.168.4.1', timeout=5, source_address=(source, 0))
     payload = urlencode({'s': credentials['ssid'], 'p': credentials['password']}).encode('ascii')
-    report['configurationAttempted'] = True
     try:
+        if cancel is not None and cancel.is_set():
+            report['configurationCancelled'] = True
+            return
+        conn.connect()
+        if cancel is not None and cancel.is_set():
+            report['configurationCancelled'] = True
+            return
         # Exactly one POST; timeout after sending is ambiguous and never retried.
+        report['configurationAttempted'] = True
         conn.request('POST', '/wifisave', body=payload,
                      headers={'Content-Type': 'application/x-www-form-urlencoded', 'Connection': 'close'})
         report['configurationSent'] = True
@@ -265,8 +272,6 @@ def send_configuration(source, credentials, report):
         body = response.read(131073)
         report['configurationAccepted'] = response.status == 200 and b'Saving Credentials' in body
     except (OSError, http.client.HTTPException):
-        report['configurationResponseUnknown'] = True
+        report['configurationResponseUnknown'] = report.get('configurationAttempted') is True
     finally:
         conn.close()
-
-

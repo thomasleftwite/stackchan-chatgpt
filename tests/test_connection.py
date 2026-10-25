@@ -3,10 +3,11 @@ from pathlib import Path
 import sys
 import threading
 import unittest
+from unittest.mock import patch, Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'desktop'))
 from connection import run_connection
-from provisioning import provision_device, select_hotspot
+from provisioning import provision_device, select_hotspot, WindowsSetup, Cancelled
 from windows_wifi import ProbeError
 
 
@@ -23,7 +24,7 @@ class FakeSetup:
     def prepare(self, host, cancel): self.step('prepare'); return self.present
     def connect(self, cancel): self.step('connect')
     def form_source(self, cancel): self.step('form'); return 'fixture-source'
-    def submit(self, source): self.step('submit'); return self.accepted
+    def submit(self, source, cancel): self.step('submit'); return self.accepted
     def settle(self): self.step('settle')
     def restore(self): self.step('restore')
     def verify_after(self, host): self.step('verify')
@@ -84,6 +85,29 @@ class ProvisioningLifecycleTests(unittest.TestCase):
         self.assertEqual(result,'failed')
         self.assertEqual(backend.calls[-1],'close')
         self.assertTrue(any('戻せません' in m for m in messages))
+
+    def test_changed_hotspot_after_successful_restore_keeps_redetection_instruction(self):
+        backend=FakeSetup()
+        def verify(host):
+            backend.step('verify');raise ProbeError('HOTSPOT_CHANGED')
+        backend.verify_after=verify
+        result,messages=self.run_setup(backend)
+        self.assertEqual(result,'failed')
+        self.assertTrue(any('再検出' in m for m in messages))
+        self.assertFalse(any('戻せません' in m for m in messages))
+        self.assertEqual(backend.calls[-1],'close')
+
+    def test_cancel_during_last_credentials_read_prevents_post(self):
+        setup=WindowsSetup.__new__(WindowsSetup)
+        setup.credentials={'ssid':'fixture','password':'x'*12}
+        setup.interface=Mock();setup.wlan=Mock()
+        current=setup.wlan.connection.return_value
+        current.state=1;current.association.ssid.value.return_value=b'Stackchan-Setup'
+        cancel=threading.Event()
+        def credentials():cancel.set();return setup.credentials
+        with patch('provisioning.hotspot_credentials',side_effect=credentials),patch('provisioning.send_configuration') as send:
+            with self.assertRaises(Cancelled):setup.submit('fixture-source',cancel)
+        send.assert_not_called()
 
     def test_hotspot_selection_auto_updates_single_address_and_requires_ambiguity_resolution(self):
         self.assertEqual(select_hotspot('192.168.1.1',{'192.168.137.1':'192.168.137.0/24'}),'192.168.137.1')

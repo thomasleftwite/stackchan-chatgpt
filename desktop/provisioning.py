@@ -108,14 +108,20 @@ class WindowsSetup:
                 raise Cancelled()
         raise ProbeError('AP_DHCP_TIMEOUT')
 
-    def submit(self, source):
+    def submit(self, source, cancel):
         current = self.wlan.connection(self.interface.guid)
         if not current or current.state != 1 or current.association.ssid.value() != TARGET:
             raise ProbeError('TARGET_CONNECTION_LOST')
         if hotspot_credentials() != self.credentials:
             raise ProbeError('HOTSPOT_CHANGED')
+        if cancel.is_set():
+            raise Cancelled()
         report = {}
-        send_configuration(source, self.credentials, report)
+        send_configuration(source, self.credentials, report, cancel)
+        if report.get('configurationCancelled'):
+            raise Cancelled()
+        if not report.get('configurationAttempted'):
+            raise ProbeError('SETUP_SEND_FAILED')
         return report.get('configurationAccepted') is True
 
     def settle(self):
@@ -175,7 +181,7 @@ def provision_device(host, cancel, online, on_status, *, backend_factory=Windows
         if cancel.is_set():
             raise Cancelled()
         on_status('PCホットスポットの接続情報を端末へ送信しています…')
-        accepted = backend.submit(source)
+        accepted = backend.submit(source, cancel)
         on_status('設定受付後のWi-Fi接続を待っています。停止時もPCの復帰までお待ちください…' if accepted else
                   '設定応答を確認できません。自動再送せず、Wi-Fi接続結果を待っています…')
         backend.settle()
@@ -190,11 +196,19 @@ def provision_device(host, cancel, online, on_status, *, backend_factory=Windows
         if backend:
             try:
                 backend.restore()
-                if outcome == 'configured':
-                    backend.verify_after(host)
             except Exception:
                 outcome = 'failed'
                 on_status(setup_message('RESTORE_FAILED'))
+            else:
+                if outcome == 'configured':
+                    try:
+                        backend.verify_after(host)
+                    except ProbeError as error:
+                        outcome = 'failed'
+                        on_status(setup_message(str(error)))
+                    except Exception:
+                        outcome = 'failed'
+                        on_status(setup_message('FAILED'))
             finally:
                 backend.close()
     if cancel.is_set():

@@ -461,6 +461,8 @@ console.log(JSON.stringify({ok:result.pcm.length===2}));} finally {await app.clo
         checks['noProjectPrivateFiles']=not (runtime/'data').exists() and not (runtime/'server/.env').exists()
         checks['serialModule']=bool(list_ports.comports is not None)
         checks['wirelessModule']=(runtime/'server/dist/wireless-host.js').is_file()
+        from windows_wifi import temporary_profile
+        checks['apSetupResources']=b'Stackchan-Setup'.hex() in temporary_profile()
     except Exception:
         checks['completed']=False
     data={'version':VERSION,'status':'PASS' if checks and all(checks.values()) else 'FAIL','checks':checks,'apiCalls':0}
