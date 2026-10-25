@@ -90,7 +90,7 @@ def main():
         files.append({'path':str(path.relative_to(STAGE)).replace('\\','/'),'size':len(data),'sha256':hashlib.sha256(data).hexdigest()})
     manifest={'version':VERSION,'node':version,'python':sys.version.split()[0],
         'serverLockSha256':sha(ROOT/'server/package-lock.json'),'payload':files,
-        'launcherSources':{name:sha(ROOT/name) for name in ('desktop/host_app.py','desktop/settings.py','desktop/network.py','desktop/wireless.py','desktop/voices.py','desktop/voice_preview.py','tools/run_gemini_device.py','tools/run_lan_probe.py')},
+        'launcherSources':{name:sha(ROOT/name) for name in ('desktop/host_app.py','desktop/settings.py','desktop/network.py','desktop/wireless.py','desktop/connection.py','desktop/provisioning.py','desktop/windows_wifi.py','desktop/voices.py','desktop/voice_preview.py','tools/run_gemini_device.py','tools/run_lan_probe.py')},
         'privateValueMatches':0,'firmwareIncluded':False,'driverInstallerIncluded':False}
     (STAGE/'build-manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     run([sys.executable,'-m','PyInstaller','--noconfirm','--onefile','--windowed','--noupx',

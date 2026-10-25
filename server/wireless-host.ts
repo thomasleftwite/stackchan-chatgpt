@@ -45,7 +45,7 @@ try {
       if(active) {voices?.beginTurn();report('session-busy',{voice:voices?.activeVoice ?? ''});}
       else {voices?.endTurn();report('session-idle');}
     },
-    onHealth:()=>{if(Date.now()-lastHealth>10000){lastHealth=Date.now();report('device-online');}},
+    onRemotePeer:()=>{if(Date.now()-lastHealth>10000){lastHealth=Date.now();report('device-online');}},
     runTurn:async pcm=>{
       if(!config) return {pcm:Buffer.alloc(1922),sampleRate:24000,chunks:1,elapsedMs:0};
       try {const voice=voices!.activeVoice;const result=await voices!.run(pcm);report('turn-complete',{voice,model:config.model});return result;}

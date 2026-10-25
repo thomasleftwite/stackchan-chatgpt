@@ -12,6 +12,7 @@ export interface GeminiServerOptions {
   sessionMs?: number;
   tlsPsk?: {identity:string; keyHex:string};
   onHealth?: () => void;
+  onRemotePeer?: () => void;
   trustedSubnet?: string;
   canStart?:()=>boolean;
   onSessionState?:(active:boolean)=>void;
@@ -53,7 +54,10 @@ export function createGeminiServer(options: GeminiServerOptions) {
     if (options.tlsPsk && req.headers.authorization !== `Bearer ${options.deviceToken}`) {
       res.writeHead(401); res.end(); return;
     }
-    if (req.url === '/healthz') options.onHealth?.();
+    if (req.url === '/healthz') {
+      options.onHealth?.();
+      if(req.method==='GET' && req.socket.remoteAddress!==req.socket.localAddress) options.onRemotePeer?.();
+    }
     res.setHeader('Content-Type', 'application/json');
     res.writeHead(req.url === '/healthz' ? 200 : 404);
     res.end(JSON.stringify(req.url === '/healthz' ? {status:'ok', mode:'gemini-live', protocolVersion:2} : {error:'not-found'}));
@@ -77,9 +81,10 @@ export function createGeminiServer(options: GeminiServerOptions) {
         !timingSafeEqual(digest(auth.slice(7)), expected))) { reject(401); return; }
     if (wss.clients.size || busy) { reject(429); return; }
     if(options.canStart && !options.canStart()) {options.onBusy?.();reject(429);return;}
-    wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws));
+    wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
   });
-  wss.on('connection', ws => {
+  wss.on('connection', (ws, req) => {
+    if(req.socket.remoteAddress!==req.socket.localAddress) options.onRemotePeer?.();
     options.onSessionState?.(true);
     let phase: 'input' | 'generating' | 'output' | 'draining' | 'closed' = 'input';
     let generation = 0, inputSequence = 0, inputBytes = 0, outputSequence = 0, outputSamples = 0;
