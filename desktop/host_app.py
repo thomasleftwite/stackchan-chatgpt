@@ -19,6 +19,9 @@ from voices import VoiceReviews,REVIEW_REASONS
 from voice_preview import decode_audio, generate_sample, play_pcm
 from network import hotspot_networks, is_lan
 from wireless import run_wireless, runtime_node, PORT
+from connection import run_connection
+from provisioning import select_hotspot, setup_message
+from windows_wifi import ProbeError
 
 
 def runtime_root():
@@ -39,6 +42,7 @@ class HostApp:
         self.stop_event=threading.Event(); self.worker=None; self.closing=False
         self.events=queue.Queue(maxsize=256)
         self.commands=queue.Queue(maxsize=32);self.request_id=0;self.session_busy=False
+        self.link_ready=False
         self.preview_job=None;self.pc_heard=set()
         self.reviews=VoiceReviews(self.path.with_name('voice-reviews.json'))
         self.voice=tk.StringVar();self.voice_status=tk.StringVar(value='日本語の声を確認して採用してください。')
@@ -54,7 +58,7 @@ class HostApp:
         style.configure('Action.TButton',font=('Yu Gothic UI',12,'bold'),padding=(18,11))
         outer=ttk.Frame(root,padding=26); outer.pack(fill='both',expand=True)
         ttk.Label(outer,text='スタックちゃん ホスト',style='Title.TLabel').pack(anchor='w')
-        ttk.Label(outer,text='PCのホットスポットにつないだ端末を自動で受け付けます。登録コードは不要です。').pack(anchor='w',pady=(2,19))
+        ttk.Label(outer,text='「スタックチャン接続」で端末を設定・接続します。初回の自動設定は有線インターネット接続のPCに対応します。',wraplength=740).pack(anchor='w',pady=(2,19))
         form=ttk.Frame(outer); form.pack(fill='x'); form.columnconfigure(1,weight=1)
         self.host_box=ttk.Combobox(form,textvariable=self.host,state='readonly')
         self.key_box=ttk.Entry(form,textvariable=self.key,show='●')
@@ -81,7 +85,7 @@ class HostApp:
         self.remember_box.pack(anchor='w',pady=(12,4))
         ttk.Label(outer,text='未選択ならキーは今回の起動中だけ使用します。EXEや端末には保存しません。',foreground='#4c6175').pack(anchor='w')
         buttons=ttk.Frame(outer); buttons.pack(fill='x',pady=(19,12))
-        self.start_button=ttk.Button(buttons,text='接続して開始',style='Action.TButton',command=self.start)
+        self.start_button=ttk.Button(buttons,text='スタックチャン接続',style='Action.TButton',command=self.start)
         self.start_button.pack(side='left')
         self.stop_button=ttk.Button(buttons,text='停止',style='Action.TButton',command=self.stop,state='disabled')
         self.stop_button.pack(side='left',padx=12)
@@ -141,8 +145,6 @@ class HostApp:
         if self.preview_job:
             self.preview_status.set('試聴を停止してからホストを開始してください。');return
         key=self.key.get().strip(); model=self.model.get().strip()
-        if not is_lan(self.host.get()):
-            messagebox.showwarning('接続先の確認','PCホットスポットのアドレスを選んでください。'); return
         if not valid_key(key) or not valid_model(model):
             messagebox.showwarning('設定の確認','Geminiキーとモデル名を確認してください。'); return
         self.refresh_voices()
@@ -150,25 +152,33 @@ class HostApp:
         if voice not in self.reviews.approved(model):
             messagebox.showwarning('日本語の声','「声を確認・管理」でPCサンプルを聴き、声を採用してください。');return
         selected_host=self.host.get()
+        remember=self.remember.get(); selected_port=self.port.get()
         runtime=runtime_root(); node=runtime/'node.exe'
         if not node.is_file():
             messagebox.showerror('実行環境','同梱された実行環境が見つかりません。配布EXEを確認してください。'); return
-        try: save_settings(self.path,model=model,port=self.port.get(),host=self.host.get(),key=key,remember=self.remember.get(),voice=self.voice.get())
-        except Exception:
-            messagebox.showerror('設定保存','設定を保存できませんでした。保存先へのアクセスを確認してください。'); return
         env=runtime_env(key,model,voice)
         while not self.commands.empty(): self.commands.get_nowait()
-        self.stop_event.clear(); self.set_running(True); self.status.set('接続を準備しています…')
+        self.stop_event.clear(); self.link_ready=False; self.set_running(True); self.status.set('接続を準備しています…')
         def work():
+            result=1
             try:
+                host=select_hotspot(selected_host,hotspot_networks())
+                self.post('host-selected',host)
+                try: save_settings(self.path,model=model,port=selected_port,host=host,key=key,remember=remember,voice=voice)
+                except Exception:
+                    self.post('friendly','設定を保存できませんでした。保存先へのアクセスを確認してください。')
+                    return
+                if self.stop_event.is_set(): return
                 stable_node=runtime_node(runtime)
-                result=run_wireless(runtime,stable_node,selected_host,env,self.stop_event,lambda text:self.post('status',text),
+                result=run_connection(runtime,stable_node,host,env,self.stop_event,lambda text:self.post('status',text),
                     self.commands,lambda event:self.post('voice-event',event))
+            except ProbeError as error:
+                self.post('friendly',setup_message(str(error)))
             except Exception:
                 result=1; self.post('friendly','接続処理を完了できませんでした。設定とWi-Fi接続を確認してください。')
             finally:
                 env.pop('GEMINI_API_KEY',None)
-            self.post('done',result)
+                self.post('done',result)
         self.worker=threading.Thread(target=work,daemon=False); self.worker.start()
 
     def stop(self):
@@ -188,6 +198,7 @@ class HostApp:
         self.history.see('end'); self.history.configure(state='disabled')
 
     def friendly(self,text):
+        if text.startswith('CONNECT '): return text[8:]
         match=re.fullmatch(r'WIRELESS turn-failed ([A-Z_]+) (0|[1-5][0-9]{2})',text)
         if match:
             messages={'AUTH':'Gemini APIキーの認証に失敗しました。キーを確認してください。',
@@ -237,12 +248,17 @@ class HostApp:
         while not self.events.empty():
             kind,value=self.events.get_nowait()
             if kind=='scan':
+                if self.running(): continue
                 hosts=value
                 self.host_box.configure(values=hosts)
                 if self.host.get() not in hosts: self.host.set((hosts or [''])[0])
                 self.scan_button.configure(state='normal')
-                self.status.set('ホットスポットのアドレス・Geminiキー・声を確認して開始してください。' if hosts else 'LANを検出できません。PCのモバイルホットスポットを有効にしてください。接続を確認して再検出してください。')
+                self.status.set('Geminiキー・声を確認して「スタックチャン接続」を押してください。' if hosts else 'LANを検出できません。PCのモバイルホットスポットを有効にしてください。接続を確認して再検出してください。')
+            elif kind=='host-selected':
+                self.host.set(value)
+                self.host_box.configure(values=[value])
             elif kind=='status':
+                if value=='WIRELESS device-online': self.link_ready=True
                 friendly=self.friendly(value)
                 if friendly: self.log(friendly)
             elif kind=='friendly': self.log(value)
@@ -250,7 +266,7 @@ class HostApp:
             elif kind=='preview-play': self.play_preview(*value)
             elif kind=='preview-ended': self.preview_ended(*value)
             elif kind=='done':
-                self.session_busy=False;self.stop_preview()
+                self.link_ready=False;self.session_busy=False;self.stop_preview()
                 self.set_running(False)
                 if self.closing: self.root.destroy(); return
         self.root.after(100,self.pump)
@@ -324,6 +340,8 @@ class HostApp:
 
     def preview(self,voice):
         model=self.model.get().strip();key=self.key.get().strip()
+        if self.running() and not self.link_ready:
+            self.preview_status.set('端末の接続が完了してから試聴してください。');return
         if self.preview_job: self.preview_status.set('試聴中です。別の声は停止後に選んでください。');return
         if self.session_busy: self.preview_status.set('端末の会話が終わってから試聴してください。');return
         if not self.sleep_confirmed.get(): self.preview_status.set('端末をSleepingにして、試聴用のチェックを入れてください。');return
@@ -421,7 +439,7 @@ console.log(JSON.stringify({ok:result.pcm.length===2}));} finally {await app.clo
             if ui:
                 root=tk.Tk(); root.attributes('-alpha',0.0); root.withdraw(); app=HostApp(root,discover=False,config_path=Path(folder)/'ui.json')
                 root.deiconify()
-                root.update(); checks['gui']=app.start_button.cget('text')=='接続して開始' and app.remember.get() is False
+                root.update(); checks['gui']=app.start_button.cget('text')=='スタックチャン接続' and app.remember.get() is False
                 checks['wifiOnly']=not hasattr(app,'transport_box') and not hasattr(app,'port_box') and not hasattr(app,'transport')
                 checks['noManualPairing']=not hasattr(app,'pair_box') and not hasattr(app,'pair_code') and not hasattr(app,'forget_button')
                 checks['voiceCatalog']=bool(app.reviews.candidates('gemini-3.8-live')) and not app.reviews.approved('gemini-3.8-live')

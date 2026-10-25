@@ -27,6 +27,7 @@ Python49件、Node37件、C++169項目、端末3構成ビルド、最終EXE自�
 
 ## 文書・開発
 
+- [ホスト0.7.0-rc.1候補: スタックチャン接続ボタンの組込み（新EXEでの実機検証前）](docs/HOST_AP_PROVISIONING_IMPLEMENTATION_R01.md)
 - [次段階: ホストからのAP設定・接続簡素化R01（仕様のみ・未実装）](docs/HOST_AP_PROVISIONING_R01.md)
 - [Windows実証R01（診断経由の設定・接続を基本確認、製品ホストへの組込みは未実施）](docs/HOST_AP_PROVISIONING_WINDOWS_PROBE_R01.md)
 - [構成スライド](docs/architecture-slide.pptx)

@@ -4,6 +4,24 @@ import {once} from 'node:events';
 import {WebSocket} from 'ws';
 import {createGeminiServer, hotspotPeerAllowed} from '../gemini-server.js';
 import {runGeminiProtocolProbe} from '../gemini-probe-client.js';
+import {request} from 'node:http';
+
+test('local health probes never report a remote device; a remote peer does',async t=>{
+ let peers=0;
+ const token='x'.repeat(32);
+ const app=createGeminiServer({deviceToken:token,onRemotePeer:()=>peers++,runTurn:async()=>{throw new Error('unused');}});
+ app.server.listen(0,'127.0.0.1');await once(app.server,'listening');t.after(()=>app.close());
+ const address=app.server.address();assert(address&&typeof address!=='string');
+ const url=`http://127.0.0.1:${address.port}/healthz`;
+ assert.equal((await fetch(url,{headers:{Authorization:`Bearer ${token}`}})).status,200);
+ assert.equal(peers,0);
+ await new Promise<void>((resolve,reject)=>{
+  const req=request(url,{localAddress:'127.0.0.2',headers:{Authorization:`Bearer ${token}`}},res=>{
+   res.resume();res.on('end',()=>res.statusCode===200?resolve():reject(new Error('health failed')));
+  });req.on('error',reject);req.end();
+ });
+ assert.equal(peers,1);
+});
 
 test('hotspot trust accepts only its subnet, never the upstream or mapped outsiders',()=>{
  assert(hotspotPeerAllowed('192.168.137.23','192.168.137.0/24'));

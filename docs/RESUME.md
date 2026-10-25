@@ -1,5 +1,9 @@
 # 現在地と再開手順
 
+## ホスト新ボタンへの組込み（2026-10-25）
+
+利用者の続行指示を受け、[実装R01](HOST_AP_PROVISIONING_IMPLEMENTATION_R01.md)でホスト0.7.0-rc.1候補を追加。新ボタンから待受先行→必要ならAP設定→20秒維持→PC復帰へ進む。有線上流・未接続Wi-Fi1台を初回自動設定の対象とした。Python全74件成功。EXE自己診断・レビュー・新UIの実機接続は結果追記待ち。旧公開0.6.0-rc.1と端末ファームウェアは保持する。
+
 ## 次段階の仕様整理（2026-10-25）
 
 `codex/host-ap-provisioning`で[ホストからのAP設定R01](HOST_AP_PROVISIONING_R01.md)を整理後、利用者の続行・設定送信許可を受けて[Windows実証R01](HOST_AP_PROVISIONING_WINDOWS_PROBE_R01.md)を実施。有線PCでAP一時接続・設定送信・PC復帰・ホットスポット参加0→1、既存ホスト開始後のPC Online / Sleepingを基本確認。受付後20秒維持の試行で成功、直後離脱試行の失敗原因は未確定。

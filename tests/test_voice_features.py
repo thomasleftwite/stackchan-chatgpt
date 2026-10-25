@@ -111,7 +111,7 @@ class VoiceFeatureTest(unittest.TestCase):
                 app.pc_heard.add((app.model.get(),'Kore'))
                 app.decide_voice(app.model.get(),'Kore',True,'発音・読み・明瞭さが適切')
                 runtime=Path(folder)/'runtime';runtime.mkdir();node=runtime/'node.exe';node.touch()
-                with patch('host_app.runtime_root',return_value=runtime), patch('host_app.runtime_node',return_value=node), patch('host_app.run_wireless',return_value=0) as wireless:
+                with patch('host_app.runtime_root',return_value=runtime), patch('host_app.runtime_node',return_value=node), patch('host_app.hotspot_networks',return_value={'192.168.137.1':'192.168.137.0/24'}), patch('host_app.run_connection',return_value=0) as wireless:
                     app.start();app.worker.join(timeout=3)
                     self.assertFalse(app.worker.is_alive());wireless.assert_called_once()
                 app.pump()
