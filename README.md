@@ -27,6 +27,7 @@ Python49件、Node37件、C++169項目、端末3構成ビルド、最終EXE自�
 
 ## 文書・開発
 
+- [次段階: ホストからのAP設定・接続簡素化R01（仕様のみ・未実装）](docs/HOST_AP_PROVISIONING_R01.md)
 - [構成スライド](docs/architecture-slide.pptx)
 - [再開時の現在地](docs/RESUME.md) / [短い開発履歴](docs/DEVELOPMENT_HISTORY.md)
 - [ToDo・将来構想](TODO.md) / [RC1成果物・導入記録](docs/RELEASE_CANDIDATE_0_6_0_2026-10-21.md)

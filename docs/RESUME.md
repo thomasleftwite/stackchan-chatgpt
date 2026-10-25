@@ -1,5 +1,11 @@
 # 現在地と再開手順
 
+## 次段階の仕様整理（2026-10-25）
+
+`codex/host-ap-provisioning`で[ホストからのAP設定R01](HOST_AP_PROVISIONING_R01.md)を整理。今回の承認範囲は仕様・実現性・問題点まで。ホスト/端末コード、EXE、実機設定は未変更。WindowsのAP一時接続・ホットスポット継続・元のWi-Fi復帰と資格情報取得は未実証。下記RC1の動作・成果物は引き続き基準とする。
+
+## 現行RC1の基準
+
 2026-10-21 / R16。現行はAtomS3R + Atomic Voice Base A149、Windowsホスト **0.6.0-rc.1**、Gemini Liveの構成。
 
 ## 現在の動作
