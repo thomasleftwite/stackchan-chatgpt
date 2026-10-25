@@ -2,6 +2,8 @@
 
 2026-10-25 / R01 / **仕様・実現性調査のみ。未実装・実機未検証。**
 
+本書は仕様整理時点の記録。その後、利用者の続行・設定送信許可を受けた[Windows実証R01](HOST_AP_PROVISIONING_WINDOWS_PROBE_R01.md)で、有線PCの基本接続を確認した。製品ホストへの組込みは引き続き未実施。現在地は[RESUME](RESUME.md)を参照。
+
 対象: AtomS3R + Atomic Voice Base A149、端末・ホスト0.6.0-rc.1。
 基準: `dec249696e84f97b63eba122f33dbb624edfd484`。
 作業ブランチ: `codex/host-ap-provisioning`。

@@ -2,7 +2,9 @@
 
 ## 次段階の仕様整理（2026-10-25）
 
-`codex/host-ap-provisioning`で[ホストからのAP設定R01](HOST_AP_PROVISIONING_R01.md)を整理。今回の承認範囲は仕様・実現性・問題点まで。ホスト/端末コード、EXE、実機設定は未変更。WindowsのAP一時接続・ホットスポット継続・元のWi-Fi復帰と資格情報取得は未実証。下記RC1の動作・成果物は引き続き基準とする。
+`codex/host-ap-provisioning`で[ホストからのAP設定R01](HOST_AP_PROVISIONING_R01.md)を整理後、利用者の続行・設定送信許可を受けて[Windows実証R01](HOST_AP_PROVISIONING_WINDOWS_PROBE_R01.md)を実施。有線PCでAP一時接続・設定送信・PC復帰・ホットスポット参加0→1、既存ホスト開始後のPC Online / Sleepingを基本確認。受付後20秒維持の試行で成功、直後離脱試行の失敗原因は未確定。
+
+診断ツール2件・オフライン12件成功。ホスト製品コード・配布EXE・端末ファームウェアは未変更。端末の接続先Wi-Fi情報だけを既存WiFiManagerで設定した。新ボタンへの組込み、上流Wi-Fi復帰、通常再起動、会話/音声/口パクは未検証。下記RC1の動作・成果物は引き続き基準とする。
 
 ## 現行RC1の基準
 
