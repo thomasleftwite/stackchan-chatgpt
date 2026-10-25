@@ -1,6 +1,6 @@
 # ToDo
 
-2026-10-21 / RC1。現在地は[RESUME](docs/RESUME.md)、詳細な旧作業行は[整理前ToDo](docs/archive/2026-10-21/rc1-before-compaction/TODO.md)に保持しています。
+2026-10-25 / ホスト正式版0.7.0・端末RC1。現在地は[RESUME](docs/RESUME.md)、詳細な旧作業行は[整理前ToDo](docs/archive/2026-10-21/rc1-before-compaction/TODO.md)に保持しています。旧ホストのローカル配布物は公開後整理で削除済みで、以下の旧版パスは作業時点の履歴です。
 
 ## 現行版
 
@@ -17,7 +17,7 @@
 - [ ] ウェイクワードの見逃し・会議話者による誤検出を、環境条件と反復回数を定めて評価する。
 - [ ] 長時間運用、物理的電源断、通信断・API制限、別Windows PCでの復帰と会話を検証する。
 - [ ] 採用する各声の日本語品質を利用者がPCサンプルで評価し、不適合声を除外する。全候補の品質保証は未完了。
-- [ ] RC1の継続使用結果を踏まえ、正式版への移行を判断する。
+- [x] ホストを正式版0.7.0へ移行（2026-10-25）。端末RC1の正式化判断と呼びかけ精度評価は継続する。
 
 ## 次段階: ホストからのAP設定（2026-10-25）
 
@@ -30,7 +30,8 @@
 - [x] 候補EXEで手動質問の回答音声・口パク・待受復帰を実機基本確認（2026-10-25）。利用者が全て正常と回答。端末更新なし。[記録](docs/HOST_AP_PROVISIONING_IMPLEMENTATION_R01.md)
 - [ ] 通常再起動後の復帰、反復成功率・長期評価、声変更/PC試聴の新版での実機再評価。既存の呼びかけ検出精度とは分けて記録する。
 - [x] 正式ホスト0.7.0をパッケージ化（2026-10-25）。[配布記録](docs/HOST_RELEASE_0_7_0_2026-10-25.md)。EXE/ZIP、正式EXE自己診断16項目、秘密情報監査、候補との振舞いソース一致を確認。GitHub公開・main統合は下記で別管理。
-- [ ] ホスト0.7.0のGitHub push/PR merge、Release7資産公開・全digest照合、main同期を完了する。
+- [x] ホスト0.7.0のGitHub push/PR merge、Release7資産公開・全digest照合、main同期を完了（2026-10-25）。[PR #8](https://github.com/thomasleftwite/stackchan-chatgpt/pull/8)、[正式Release](https://github.com/thomasleftwite/stackchan-chatgpt/releases/tag/v0.7.0)。[公開・検証記録](docs/HOST_RELEASE_0_7_0_2026-10-25.md)。
+- [x] 利用者の指示で旧ホスト版・中間生成物を削除（2026-10-25）。18,066ファイル・1,842,742,817 bytes、対象残存0件。正式版・端末ファームウェア・秘密設定は同一。[削除結果](docs/release-records/2026-10-25/CLEANUP.json)。
 
 ## 将来の開発（未着手）
 

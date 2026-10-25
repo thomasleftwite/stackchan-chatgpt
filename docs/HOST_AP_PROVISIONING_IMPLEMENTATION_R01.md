@@ -39,6 +39,8 @@
 
 ## 配布候補と保管
 
+以下は候補検証時点の記録。正式版公開後の2026-10-25に利用者の指示で旧ホスト・候補・レビュー前候補を削除し、チェックサムと検証結果を本記録に残した。[正式版と整理結果](HOST_RELEASE_0_7_0_2026-10-25.md)を参照。
+
 - `releases/StackchanHost-0.7.0-rc.1-win-x64/StackchanHost.exe`（53,374,736 bytes）。SHA256: `3d3db22532d33472fb57bc1f5043ebb1482407fb5dcf4e0940eaf82c2561a076`。
 - 同フォルダの`SELF_TEST.json`、`build-manifest.json`、`SHA256SUMS.txt`、日本語手順、ライセンス通知を保持。EXE等はGit対象外で、GitHub Releaseへの公開は行っていない。
 - 旧`releases/StackchanHost-0.6.0-rc.1-win-x64/StackchanHost.exe`は既存チェックサムと一致。レビュー前の一時候補も`releases/archive/2026-10-25/StackchanHost-0.7.0-rc.1-before-review/`へ保管し、当初SHA一致を確認した。

@@ -1,6 +1,6 @@
 # Stackchan 音声対話端末
 
-AtomS3R + Atomic Voice Base A149を、Windowsホスト経由でGemini Liveへ接続する音声対話システムです。Windowsホストは **0.7.0**（公開作業中）、端末は既存の **0.6.0-rc.1**を使用します。端末更新は不要です。端末とホストはWi-Fiで接続し、通常利用にUSB操作・監視は不要です。
+AtomS3R + Atomic Voice Base A149を、Windowsホスト経由でGemini Liveへ接続する音声対話システムです。Windowsホストは正式版 **0.7.0**、端末は既存の **0.6.0-rc.1**を使用します。端末更新は不要です。端末とホストはWi-Fiで接続し、通常利用にUSB操作・監視は不要です。
 
 [ホスト0.7.0の配布先](https://github.com/thomasleftwite/stackchan-chatgpt/releases/tag/v0.7.0) / [既存の端末ファームウェア（RC1）](https://github.com/thomasleftwite/stackchan-chatgpt/releases/tag/v0.6.0-rc.1)
 

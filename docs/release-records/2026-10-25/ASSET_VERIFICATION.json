@@ -1,0 +1,53 @@
+{
+  "status": "PASS",
+  "date": "2026-10-25",
+  "release": "https://github.com/thomasleftwite/stackchan-chatgpt/releases/tag/v0.7.0",
+  "tag": "v0.7.0",
+  "tagCommit": "131a49422e79bdb12fd60b87acf2449797237d90",
+  "pullRequest": 8,
+  "merged": true,
+  "assets": [
+    {
+      "name": "build-manifest.json",
+      "size": 258816,
+      "sha256": "71e7f500238550748c4bdee3b12a96b7f2b07ea78ad54600a1d802c4276ef28c",
+      "remoteMatch": true
+    },
+    {
+      "name": "README.ja.md",
+      "size": 8007,
+      "sha256": "efc16a6558481442badb53da7356bb1b5aad2b97bc50c8fbd862d16380b13fc0",
+      "remoteMatch": true
+    },
+    {
+      "name": "SELF_TEST.json",
+      "size": 525,
+      "sha256": "c171a0a0b74033da78f29ed5346380a7e9ac1e63f9de51d37caa9256394fb6a7",
+      "remoteMatch": true
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "size": 524,
+      "sha256": "8a41a0edb98b20b815132500a6be9f99ea6f1b9d4488a77084f0ad6356850763",
+      "remoteMatch": true
+    },
+    {
+      "name": "StackchanHost-0.7.0-win-x64.zip",
+      "size": 52923315,
+      "sha256": "15f939ed7693c986fea08a5ab2e3ee653dedbc5f5b56d85543d4b41d68a66067",
+      "remoteMatch": true
+    },
+    {
+      "name": "StackchanHost.exe",
+      "size": 53375568,
+      "sha256": "18914d637888a8cd50c82b58c6d6b34377a2d825f8c65103efbda1ba2beeb6b1",
+      "remoteMatch": true
+    },
+    {
+      "name": "THIRD_PARTY_NOTICES.txt",
+      "size": 430967,
+      "sha256": "2b1fc2e5afb81622d9ec9f4a388613ac3d04aba41f009b61f8871a26003d7129",
+      "remoteMatch": true
+    }
+  ]
+}

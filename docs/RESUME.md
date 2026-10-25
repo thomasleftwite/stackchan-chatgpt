@@ -2,7 +2,9 @@
 
 ## 正式ホスト0.7.0（2026-10-25）
 
-候補版で新ボタンの設定引継ぎ・保存済み接続・AP自動設定・手動質問の回答音声/口パク/待受復帰を利用者確認済み。利用者の正式化・GitHub main統合指示に基づき、同じ接続処理でホスト0.7.0を作成した。[正式版記録](HOST_RELEASE_0_7_0_2026-10-25.md)。パッケージは`releases/StackchanHost-0.7.0-win-x64/`。Python77件、Node38件、正式EXE16項目、秘密監査一致0件。PR/Release公開・同期は作業中。
+候補版で新ボタンの設定引継ぎ・保存済み接続・AP自動設定・手動質問の回答音声/口パク/待受復帰を利用者確認済み。利用者の正式化・GitHub main統合指示に基づき、同じ接続処理でホスト0.7.0を作成した。[正式版記録](HOST_RELEASE_0_7_0_2026-10-25.md)。パッケージは`releases/StackchanHost-0.7.0-win-x64/`。Python77件、Node38件、正式EXE16項目、秘密監査一致0件。[PR #8](https://github.com/thomasleftwite/stackchan-chatgpt/pull/8)をmain統合し、[正式Release v0.7.0](https://github.com/thomasleftwite/stackchan-chatgpt/releases/tag/v0.7.0)の7資産を公開・全digest/サイズ照合済み。タグは統合コミット`131a49422e79bdb12fd60b87acf2449797237d90`。
+
+利用者の候補ホスト停止・終了後、旧ホスト版とビルド中間生成物18,066ファイル（約1.84GB、論理サイズ）を削除。正式版・端末ファームウェア・秘密設定5パスは同一。再ビルド用Python/Node依存環境と検証履歴は保持。[整理結果](release-records/2026-10-25/CLEANUP.json)。下記の候補パス・当時の未検証記述は作業履歴として読む。
 
 端末は引き続き既存0.6.0-rc.1で、書込み不要。ホストのみ更新する。上流Wi-Fi構成・長期/反復・通常再起動後復帰は未検証。下記は実装・旧版の履歴として保持する。
 

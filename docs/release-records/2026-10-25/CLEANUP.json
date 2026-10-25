@@ -1,0 +1,83 @@
+{
+  "date": "2026-10-25",
+  "status": "PASS",
+  "removedFiles": 18066.0,
+  "removedLogicalBytes": 1842742817.0,
+  "targets": [
+    {
+      "path": "releases/StackchanHost-0.6.0-rc.1-win-x64",
+      "files": 6,
+      "bytes": 53988247.0
+    },
+    {
+      "path": "releases/StackchanHost-0.7.0-rc.1-win-x64",
+      "files": 6,
+      "bytes": 54072889.0
+    },
+    {
+      "path": "releases/archive/2026-10-25/StackchanHost-0.7.0-rc.1-before-review",
+      "files": 5,
+      "bytes": 54072808.0
+    },
+    {
+      "path": ".packaging/prior-stages",
+      "files": 16436,
+      "bytes": 1491467679.0
+    },
+    {
+      "path": ".packaging/stage",
+      "files": 1371,
+      "bytes": 124296293.0
+    },
+    {
+      "path": ".packaging/work",
+      "files": 14,
+      "bytes": 58788671.0
+    },
+    {
+      "path": ".packaging/npm-cache",
+      "files": 220,
+      "bytes": 6038072.0
+    },
+    {
+      "path": ".packaging/StackchanHost.spec",
+      "files": 1,
+      "bytes": 1178.0
+    },
+    {
+      "path": ".pio/desktop-tests",
+      "files": 0,
+      "bytes": null
+    },
+    {
+      "path": ".pio/host-test-temp",
+      "files": 0,
+      "bytes": null
+    },
+    {
+      "path": ".pio/voice-tests",
+      "files": 0,
+      "bytes": null
+    },
+    {
+      "path": ".pio/wireless-tests",
+      "files": 0,
+      "bytes": null
+    },
+    {
+      "path": ".pio/release-sync-20261025",
+      "files": 7,
+      "bytes": 16980.0
+    }
+  ],
+  "remainingTargets": 0,
+  "officialReleaseUnchanged": true,
+  "firmwareUnchanged": true,
+  "privateSettingsPathsChecked": 5,
+  "privateSettingsUnchanged": true,
+  "buildDependenciesRetained": [
+    ".packaging/downloads",
+    ".packaging/venv"
+  ],
+  "historicalEvidenceRetained": true
+}
